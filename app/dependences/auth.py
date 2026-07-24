@@ -1,3 +1,4 @@
+from typing import cast
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -13,33 +14,37 @@ def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    print("=" * 60)
+    print("TOKEN:", repr(token))
 
     payload = decode_access_token(token)
+    print("PAYLOAD:", payload)
 
     if payload is None:
-        raise credentials_exception
+        print("JWT decode failed")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+        )
 
     user_id = payload.get("sub")
 
     if user_id is None:
-        raise credentials_exception
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token does not contain user id",
+        )
 
-    try:
-        user_id = int(user_id)
-    except (TypeError, ValueError):
-        raise credentials_exception
+    print("SUB:", user_id)
 
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == int(cast(str, user_id))).first()
+
+    print("USER:", user)
 
     if user is None:
-        raise credentials_exception
-
-    if not user.is_active:
-        raise HTTPException(403, "User account is inactive")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
 
     return user

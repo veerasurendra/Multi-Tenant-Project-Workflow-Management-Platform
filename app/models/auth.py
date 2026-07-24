@@ -49,3 +49,27 @@ class User(Base):
         back_populates="assignee",
         foreign_keys="Task.assigned_to",
     )
+    activities = relationship(
+    "ActivityLog",
+    back_populates="user",
+    cascade="all, delete-orphan",
+    )
+    notifications = relationship(
+    "Notification",
+    back_populates="user",
+    cascade="all, delete-orphan",
+    )
+    notification_preferences = relationship(
+    "NotificationPreference",
+    back_populates="user",
+    cascade="all, delete-orphan",
+    )
+    refresh_tokens = relationship(
+    "RefreshToken",
+    back_populates="user",
+    cascade="all, delete-orphan",
+    )
+    audit_changes = relationship(
+    "AuditLog",
+    back_populates="changed_by_user",
+    )

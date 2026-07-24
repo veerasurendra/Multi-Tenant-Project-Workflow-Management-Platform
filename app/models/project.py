@@ -51,3 +51,8 @@ class Project(Base):
         back_populates="project",
         cascade="all, delete-orphan",
     )
+    activities = relationship(
+    "ActivityLog",
+    primaryjoin="foreign(ActivityLog.entity_id)==Project.id",
+    viewonly=True,
+   )

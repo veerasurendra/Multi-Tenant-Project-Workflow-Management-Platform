@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: 42b330613fb5
+Revision ID: 5875e1422c4b
 Revises: 
-Create Date: 2026-07-18 04:46:49.399004
+Create Date: 2026-07-21 13:12:24.677037
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '42b330613fb5'
+revision: str = '5875e1422c4b'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -27,29 +27,44 @@ def upgrade() -> None:
     sa.Column('password', sa.String(length=255), nullable=False),
     sa.Column('role', sa.Enum('admin', 'manager', 'member', name='roleenum'), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
     op.create_index(op.f('ix_users_id'), 'users', ['id'], unique=False)
     op.create_table('activity_logs',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('action', sa.String(length=100), nullable=False),
     sa.Column('entity_type', sa.String(length=50), nullable=False),
     sa.Column('entity_id', sa.Integer(), nullable=True),
-    sa.Column('details', sa.Text(), nullable=True),
-    sa.Column('timestamp', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('description', sa.Text(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index(op.f('ix_activity_logs_action'), 'activity_logs', ['action'], unique=False)
+    op.create_index(op.f('ix_activity_logs_entity_id'), 'activity_logs', ['entity_id'], unique=False)
     op.create_index(op.f('ix_activity_logs_id'), 'activity_logs', ['id'], unique=False)
+    op.create_index(op.f('ix_activity_logs_user_id'), 'activity_logs', ['user_id'], unique=False)
+    op.create_table('notifications',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('title', sa.String(length=200), nullable=False),
+    sa.Column('message', sa.Text(), nullable=False),
+    sa.Column('is_read', sa.Boolean(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_notifications_id'), 'notifications', ['id'], unique=False)
+    op.create_index(op.f('ix_notifications_user_id'), 'notifications', ['user_id'], unique=False)
     op.create_table('projects',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=200), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('created_by', sa.Integer(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.Column('is_deleted', sa.Boolean(), nullable=False),
     sa.ForeignKeyConstraint(['created_by'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -60,7 +75,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('project_id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
-    sa.Column('added_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('added_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id'),
@@ -77,7 +92,7 @@ def upgrade() -> None:
     sa.Column('assigned_to', sa.Integer(), nullable=True),
     sa.Column('project_id', sa.Integer(), nullable=False),
     sa.Column('created_by', sa.Integer(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.Column('is_deleted', sa.Boolean(), nullable=False),
     sa.ForeignKeyConstraint(['assigned_to'], ['users.id'], ),
     sa.ForeignKeyConstraint(['created_by'], ['users.id'], ),
@@ -92,31 +107,27 @@ def upgrade() -> None:
     sa.Column('uploaded_by', sa.Integer(), nullable=False),
     sa.Column('filename', sa.String(length=255), nullable=False),
     sa.Column('filepath', sa.String(length=500), nullable=False),
-    sa.Column('uploaded_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('uploaded_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.ForeignKeyConstraint(['task_id'], ['tasks.id'], ),
     sa.ForeignKeyConstraint(['uploaded_by'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_task_attachments_id'), 'task_attachments', ['id'], unique=False)
     op.create_table('task_comments',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('task_id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('comment', sa.Text(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.ForeignKeyConstraint(['task_id'], ['tasks.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_task_comments_id'), 'task_comments', ['id'], unique=False)
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
-    op.drop_index(op.f('ix_task_comments_id'), table_name='task_comments')
     op.drop_table('task_comments')
-    op.drop_index(op.f('ix_task_attachments_id'), table_name='task_attachments')
     op.drop_table('task_attachments')
     op.drop_index(op.f('ix_tasks_title'), table_name='tasks')
     op.drop_index(op.f('ix_tasks_id'), table_name='tasks')
@@ -126,7 +137,13 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_projects_name'), table_name='projects')
     op.drop_index(op.f('ix_projects_id'), table_name='projects')
     op.drop_table('projects')
+    op.drop_index(op.f('ix_notifications_user_id'), table_name='notifications')
+    op.drop_index(op.f('ix_notifications_id'), table_name='notifications')
+    op.drop_table('notifications')
+    op.drop_index(op.f('ix_activity_logs_user_id'), table_name='activity_logs')
     op.drop_index(op.f('ix_activity_logs_id'), table_name='activity_logs')
+    op.drop_index(op.f('ix_activity_logs_entity_id'), table_name='activity_logs')
+    op.drop_index(op.f('ix_activity_logs_action'), table_name='activity_logs')
     op.drop_table('activity_logs')
     op.drop_index(op.f('ix_users_id'), table_name='users')
     op.drop_index(op.f('ix_users_email'), table_name='users')

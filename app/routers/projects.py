@@ -1,18 +1,21 @@
 from typing import Any, Optional, cast
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
-from ..dependencies import (
+from ..dependences import (
     ensure_can_manage_project,
     ensure_can_view_project,
     get_current_user,
     get_project_or_404,
     is_admin,
 )
+from ..enum import ActivityAction
+from ..utils.audit import log_change
 from ..utils.logging import log_activity
+from ..utils.notification import create_notification
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
 
@@ -20,6 +23,7 @@ router = APIRouter(prefix="/projects", tags=["Projects"])
 @router.post("", response_model=schemas.ProjectOut, status_code=status.HTTP_201_CREATED)
 def create_project(
     payload: schemas.ProjectCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -31,15 +35,22 @@ def create_project(
         )
 
     project = models.Project(
-        name=payload.name,
-        description=payload.description,
-        created_by=current_user_id,
+    name=payload.name,
+    description=payload.description,
+    created_by=current_user_id,
     )
     db.add(project)
     db.commit()
     db.refresh(project)
-    log_activity(
-        db, current_user_id, "create", "Project", int(cast(int, project.id))
+
+    background_tasks.add_task(
+        log_activity,
+        db=db,
+        user_id=current_user_id,
+        action=ActivityAction.PROJECT_CREATED.value,
+        entity_type="Project",
+        entity_id=project.id,
+        description=f"Created project '{project.name}'",
     )
     return project
 
@@ -94,12 +105,16 @@ def get_project(
 def update_project(
     project_id: int,
     payload: schemas.ProjectUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
     current_user_id = int(cast(int, current_user.id))
     project = get_project_or_404(db, project_id)
     ensure_can_manage_project(db, current_user, project)
+
+    before_name = project.name
+    before_description = project.description
 
     if payload.name is not None:
         project.name = payload.name
@@ -108,15 +123,66 @@ def update_project(
 
     db.commit()
     db.refresh(project)
-    log_activity(
-        db, current_user_id, "update", "Project", int(cast(int, project.id))
+
+    background_tasks.add_task(
+        log_activity,
+        db=db,
+        user_id=current_user_id,
+        action=ActivityAction.PROJECT_UPDATED.value,
+        entity_type="Project",
+        entity_id=project.id,
+        description=f"Updated project '{project.name}'",
     )
+
+    if before_name != project.name:
+        background_tasks.add_task(
+            log_change,
+            db=db,
+            entity_type="Project",
+            entity_id=project.id,
+            field_name="name",
+            old_value=before_name,
+            new_value=project.name,
+            changed_by=current_user_id,
+        )
+    if before_description != project.description:
+        background_tasks.add_task(
+            log_change,
+            db=db,
+            entity_type="Project",
+            entity_id=project.id,
+            field_name="description",
+            old_value=before_description,
+            new_value=project.description,
+            changed_by=current_user_id,
+        )
+
+    changed = before_name != project.name or before_description != project.description
+    if changed:
+        member_user_ids = {
+            row[0]
+            for row in db.query(models.ProjectMember.user_id)
+            .filter(models.ProjectMember.project_id == project.id)
+            .all()
+        }
+        member_user_ids.discard(current_user_id)
+        for member_user_id in member_user_ids:
+            background_tasks.add_task(
+                create_notification,
+                db=db,
+                user_id=member_user_id,
+                title="Project Updated",
+                message=f"Project '{project.name}' has been updated.",
+                notification_type=models.NotificationType.project_updated.value,
+            )
+
     return project
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(
     project_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -128,7 +194,14 @@ def delete_project(
 
     project.is_deleted = True
     db.commit()
-    log_activity(
-        db, current_user_id, "delete", "Project", int(cast(int, project.id))
+
+    background_tasks.add_task(
+        log_activity,
+        db=db,
+        user_id=current_user_id,
+        action=ActivityAction.PROJECT_DELETED.value,
+        entity_type="Project",
+        entity_id=project.id,
+        description=f"Deleted project '{project.name}'",
     )
     return None

@@ -29,7 +29,28 @@ class UserOut(BaseModel):
     created_at: datetime
 
 
+# -------------------------
+# Login Response
+# -------------------------
 class Token(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+# -------------------------
+# Refresh Request
+# -------------------------
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+class LogoutRequest(BaseModel):
+    refresh_token: str
+
+# -------------------------
+# Refresh Response
+# -------------------------
+class AccessTokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
 

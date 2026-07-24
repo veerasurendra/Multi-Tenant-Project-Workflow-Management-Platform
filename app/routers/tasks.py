@@ -3,13 +3,16 @@ import shutil
 import uuid
 from typing import List, Optional, cast
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
+
+from app.utils.notification import create_notification
+from app.utils.email import send_email_notification
 
 from .. import models, schemas
 from ..config import settings
 from ..database import get_db
-from ..dependencies import (
+from ..dependences import (
     ensure_can_manage_tasks_in_project,
     get_current_user,
     get_project_or_404,
@@ -18,7 +21,9 @@ from ..dependencies import (
     is_manager,
     is_project_creator,
 )
-from ..utils.logging import log_activity, send_email_notification
+from ..enum import ActivityAction
+from ..utils.audit import log_change
+from ..utils.logging import log_activity
 
 router = APIRouter(tags=["Tasks"])
 
@@ -43,9 +48,93 @@ def _get_assignee_or_404(db: Session, user_id: int) -> models.User:
     return assignee
 
 
+def _log_task_update(
+    db: Session,
+    background_tasks,
+    current_user_id: int,
+    task: "models.Task",
+    project: "models.Project",
+    before: dict,
+    audited_fields: tuple,
+) -> None:
+    """Shared post-update side effects: activity log entry, per-field audit
+    trail entries, and notifications for reassignment / deadline changes /
+    completion, all dispatched as background tasks."""
+
+    background_tasks.add_task(
+        log_activity,
+        db=db,
+        user_id=current_user_id,
+        action=ActivityAction.TASK_UPDATED.value,
+        entity_type="Task",
+        entity_id=task.id,
+        description=f"Updated task '{task.title}'",
+    )
+
+    for field in audited_fields:
+        old_value = before[field]
+        new_value = getattr(task, field)
+        if old_value != new_value:
+            background_tasks.add_task(
+                log_change,
+                db=db,
+                entity_type="Task",
+                entity_id=task.id,
+                field_name=field,
+                old_value=old_value,
+                new_value=new_value,
+                changed_by=current_user_id,
+            )
+
+    reassigned = before["assigned_to"] != task.assigned_to
+    if reassigned and task.assigned_to:
+        background_tasks.add_task(
+            create_notification,
+            db=db,
+            user_id=task.assigned_to,
+            title="Task Reassigned",
+            message=f"Task '{task.title}' has been assigned to you.",
+            notification_type=models.NotificationType.task_reassigned.value,
+        )
+
+    deadline_changed = before["due_date"] != task.due_date
+    if deadline_changed and task.assigned_to:
+        background_tasks.add_task(
+            create_notification,
+            db=db,
+            user_id=task.assigned_to,
+            title="Task Deadline Updated",
+            message=f"The deadline for task '{task.title}' has changed.",
+            notification_type=models.NotificationType.task_deadline_updated.value,
+        )
+        assignee = db.query(models.User).filter(models.User.id == task.assigned_to).first()
+        if assignee:
+            background_tasks.add_task(
+                send_email_notification,
+                assignee.email,
+                subject=f"Deadline updated: {task.title}",
+                body=f"The deadline for task '{task.title}' has changed to {task.due_date}.",
+            )
+
+    completed = (
+        before["status"] != task.status
+        and task.status == models.StatusEnum.completed
+    )
+    if completed:
+        background_tasks.add_task(
+            create_notification,
+            db=db,
+            user_id=task.created_by,
+            title="Task Completed",
+            message=f"Task '{task.title}' has been marked as completed.",
+            notification_type=models.NotificationType.task_completed.value,
+        )
+
+
 @router.post("/tasks", response_model=schemas.TaskOut, status_code=status.HTTP_201_CREATED)
 def create_task(
     payload: schemas.TaskCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -69,16 +158,35 @@ def create_task(
     db.add(task)
     db.commit()
     db.refresh(task)
-    log_activity(db, current_user_id, "create", "Task", int(cast(int, task.id)))
+
+    background_tasks.add_task(
+        log_activity,
+        db=db,
+        user_id=current_user_id,
+        action=ActivityAction.TASK_CREATED.value,
+        entity_type="Task",
+        entity_id=task.id,
+        description=f"Created task '{task.title}'",
+    )
 
     if task.assigned_to:
+        background_tasks.add_task(
+            create_notification,
+            db=db,
+            user_id=task.assigned_to,
+            title="Task Assigned",
+            message=f"You have been assigned task '{task.title}'.",
+            notification_type=models.NotificationType.task_assigned.value,
+        )
         assignee = db.query(models.User).filter(models.User.id == task.assigned_to).first()
         if assignee:
-            send_email_notification(
+            background_tasks.add_task(
+                send_email_notification,
                 assignee.email,
                 subject=f"New task assigned: {task.title}",
                 body=f"You have been assigned task '{task.title}' in project '{project.name}'.",
             )
+
     return task
 
 
@@ -141,6 +249,7 @@ def get_task(
 def update_task(
     task_id: int,
     payload: schemas.TaskUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -148,25 +257,21 @@ def update_task(
     task = get_task_or_404(db, task_id)
     project = task.project
 
+    AUDITED_FIELDS = ("title", "description", "status", "priority", "due_date", "assigned_to")
+
     if is_admin(current_user) or (is_manager(current_user) and is_project_creator(current_user, project)):
         # Admins/owning-Managers can update any field, including reassignment.
         update_data = payload.model_dump(exclude_unset=True)
-        reassigned = "assigned_to" in update_data and update_data["assigned_to"] != task.assigned_to
         if update_data.get("assigned_to") is not None:
             _get_assignee_or_404(db, update_data["assigned_to"])
+
+        before = {field: getattr(task, field) for field in AUDITED_FIELDS}
         for field, value in update_data.items():
             setattr(task, field, value)
         db.commit()
         db.refresh(task)
-        log_activity(db, current_user_id, "update", "Task", int(cast(int, task.id)))
-        if reassigned and task.assigned_to:
-            assignee = db.query(models.User).filter(models.User.id == task.assigned_to).first()
-            if assignee:
-                send_email_notification(
-                    assignee.email,
-                    subject=f"Task reassigned: {task.title}",
-                    body=f"Task '{task.title}' has been assigned to you.",
-                )
+
+        _log_task_update(db, background_tasks, current_user_id, task, project, before, AUDITED_FIELDS)
         return task
 
     if task.assigned_to == current_user_id:
@@ -178,13 +283,14 @@ def update_task(
                 status_code=403,
                 detail="Members may only update the status of their assigned tasks",
             )
+
+        before = {field: getattr(task, field) for field in AUDITED_FIELDS}
         if "status" in update_data:
             task.status = update_data["status"]
         db.commit()
         db.refresh(task)
-        log_activity(
-            db, current_user_id, "update_status", "Task", int(cast(int, task.id))
-        )
+
+        _log_task_update(db, background_tasks, current_user_id, task, project, before, AUDITED_FIELDS)
         return task
 
     raise HTTPException(status_code=403, detail="You do not have permission to update this task")
@@ -193,6 +299,7 @@ def update_task(
 @router.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_task(
     task_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -203,7 +310,15 @@ def delete_task(
 
     task.is_deleted = True
     db.commit()
-    log_activity(db, current_user_id, "delete", "Task", int(cast(int, task.id)))
+    background_tasks.add_task(
+        log_activity,
+        db=db,
+        user_id=current_user_id,
+        action=ActivityAction.TASK_DELETED.value,
+        entity_type="Task",
+        entity_id=task.id,
+        description=f"Deleted task '{task.title}'",
+    )
     return None
 
 
@@ -218,6 +333,7 @@ def delete_task(
 def add_task_comment(
     task_id: int,
     payload: schemas.TaskCommentCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -231,7 +347,15 @@ def add_task_comment(
     db.add(comment)
     db.commit()
     db.refresh(comment)
-    log_activity(db, current_user_id, "comment", "Task", task_id)
+    background_tasks.add_task(
+        log_activity,
+        db=db,
+        user_id=current_user_id,
+        action=ActivityAction.TASK_COMMENT_ADDED.value,
+        entity_type="Task",
+        entity_id=task_id,
+        description=f"Added comment to task '{task.title}'",
+    )
     return comment
 
 
@@ -262,6 +386,7 @@ def list_task_comments(
 )
 def upload_task_attachment(
     task_id: int,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
@@ -289,7 +414,15 @@ def upload_task_attachment(
     db.add(attachment)
     db.commit()
     db.refresh(attachment)
-    log_activity(db, current_user_id, "attach_file", "Task", task_id)
+    background_tasks.add_task(
+        log_activity,
+        db=db,
+        user_id=current_user_id,
+        action=ActivityAction.TASK_ATTACHMENT_ADDED.value,
+        entity_type="Task",
+        entity_id=task_id,
+        description=f"Uploaded attachment '{filename}' to task '{task.title}'",
+    )
     return attachment
 
 

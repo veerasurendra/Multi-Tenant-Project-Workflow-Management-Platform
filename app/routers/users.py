@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from .. import models, schemas
 from ..database import get_db
-from ..dependencies import require_roles
+from ..dependences import require_roles
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/admin/users", tags=["User Management (Admin)"])

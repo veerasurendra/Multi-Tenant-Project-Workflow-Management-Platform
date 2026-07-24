@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import Base, engine
-from .routers import auth, members, projects, tasks, users
+from .routers import auth, members, projects, tasks, users, notification, activitylog, audit
 
 # For quick local start without Alembic. In production, prefer running
 # `alembic upgrade head` and removing/skip this call.
@@ -28,6 +28,9 @@ app.include_router(projects.router)
 app.include_router(members.router)
 app.include_router(tasks.router)
 app.include_router(users.router)
+app.include_router(notification.router)
+app.include_router(activitylog.router)
+app.include_router(audit.router)
 
 
 @app.get("/", tags=["Health"])
