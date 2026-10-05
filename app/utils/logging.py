@@ -17,6 +17,9 @@ def log_activity(
 ):
     try:
         activity = models.ActivityLog(
+            ip_address=db.info.get("ip_address"),
+            event_metadata={},
+            organization_id=db.info.get("organization_id") or db.get(models.User, user_id).organization_id,
             user_id=user_id,
             action=action,
             entity_type=entity_type,

@@ -1,255 +1,98 @@
-﻿# Project Management API with RBAC + Notification & Activity Tracking
+# Multi-Tenant Project & Workflow Management API
 
-A FastAPI backend for managing projects, project membership, and tasks with
-three roles: **Admin**, **Manager**, and **Member** — extended with a full
-notification system, activity logging, and a field-level audit trail.
+FastAPI backend for organizations, projects, tasks, workflows, dependencies, comments, attachments, notifications, dashboards, and audit history. PostgreSQL, SQLAlchemy 2, Pydantic and Alembic are used. Frontend code is outside this repository's scope.
 
-## Tech Stack
+## Setup (Windows PowerShell)
 
-| Concern | Choice |
-|---|---|
-| Framework | FastAPI |
-| ORM | SQLAlchemy 2.x |
-| Validation | Pydantic v2 |
-| Database | SQLite by default, PostgreSQL via Docker Compose |
-| Migrations | Alembic |
-| Auth | JWT with python-jose and bcrypt password hashing |
-| Tests | Pytest with FastAPI TestClient and in-memory SQLite |
-| Containerization | Docker and Docker Compose |
-
-## Project Structure
-
-```text
-pm_api/
-|-- app/
-|   |-- main.py
-|   |-- config.py
-|   |-- database.py
-|   |-- enum.py
-|   |-- security.py
-|   |-- models/
-|   |   |-- auth.py
-|   |   |-- project.py
-|   |   |-- member.py
-|   |   |-- task.py
-|   |   |-- activity.py
-|   |   |-- notification.py
-|   |   `-- audit.py
-|   |-- schemas/
-|   |-- dependences/
-|   |-- routers/
-|   |   |-- auth.py
-|   |   |-- projects.py
-|   |   |-- members.py
-|   |   |-- tasks.py
-|   |   |-- users.py
-|   |   |-- notification.py
-|   |   |-- activitylog.py
-|   |   `-- audit.py
-|   `-- utils/
-|       |-- logging.py
-|       |-- notification.py
-|       |-- audit.py
-|       `-- email.py
-|-- alembic/
-|-- docs/
-|-- tests/
-|-- postman_collection.json
-|-- requirements.txt
-|-- Dockerfile
-`-- docker-compose.yml
-```
-
-## Role-Based Access Control
-
-| Action | Admin | Manager | Member |
-|---|---|---|---|
-| Create project | Yes | Yes | No |
-| View all projects | Yes | No, own and member-of only | No, member-of only |
-| Update project | Yes, any | Yes, own only | No |
-| Delete project | Yes | No | No |
-| Add project members | Yes, any project | Yes, own projects | No |
-| Create, assign, or reassign task | Yes | Yes, within own projects | No |
-| Update task, any field | Yes | Yes, within own projects | No |
-| Update own task status | Yes | Yes | Yes |
-| Delete task | Yes | Yes, within own projects | No |
-| View task | Yes, any | Yes, own projects | Yes, assigned tasks only |
-| Manage users | Yes | No | No |
-
-Manager ownership means `Project.created_by == user.id`. Admins are the only
-role with unrestricted project and task visibility.
-
-## API Endpoints
-
-### Authentication
-
-| Method | Path | Access |
-|---|---|---|
-| POST | `/auth/signup` | Public |
-| POST | `/auth/login` | Public OAuth2 password flow; send `username` as email |
-| POST | `/auth/logout` | Authenticated; JWTs are stateless, so this just records a LOGOUT activity |
-| GET | `/auth/me` | Authenticated |
-
-### Projects
-
-| Method | Path | Access |
-|---|---|---|
-| POST | `/projects` | Admin, Manager |
-| GET | `/projects` | Authenticated and scoped by role; supports `?name=&page=&page_size=` |
-| GET | `/projects/{id}` | Admin, creator, or project member |
-| PUT | `/projects/{id}` | Admin, or Manager who created it |
-| DELETE | `/projects/{id}` | Admin only, soft delete |
-
-### Project Members
-
-| Method | Path | Access |
-|---|---|---|
-| POST | `/projects/{id}/members` | Admin, or Manager who owns the project |
-| GET | `/projects/{id}/members` | Admin, creator, or project member |
-
-### Tasks
-
-| Method | Path | Access |
-|---|---|---|
-| POST | `/tasks` | Admin, or Manager who owns the target project |
-| GET | `/tasks` | Authenticated and scoped by role; supports `?project_id=&status=&priority=&assigned_to=&page=&page_size=` |
-| GET | `/tasks/{id}` | Admin, owning Manager, or assignee |
-| PUT | `/tasks/{id}` | Admin/owning Manager can update any field; assignee can update status only |
-| DELETE | `/tasks/{id}` | Admin, or Manager who owns the project |
-| POST | `/tasks/{id}/comments` | Anyone with task view access |
-| GET | `/tasks/{id}/comments` | Anyone with task view access |
-| POST | `/tasks/{id}/attachments` | Anyone with task view access |
-| GET | `/tasks/{id}/attachments` | Anyone with task view access |
-
-### Admin User Management
-
-| Method | Path | Access |
-|---|---|---|
-| GET | `/admin/users` | Admin |
-| PUT | `/admin/users/{id}/role?role=` | Admin |
-| PUT | `/admin/users/{id}/deactivate` | Admin |
-
-### Notifications
-
-| Method | Path | Access |
-|---|---|---|
-| GET | `/notifications` | Own notifications only |
-| GET | `/notifications/unread` | Own notifications only |
-| GET | `/notifications/unread/count` | Own notifications only |
-| PUT | `/notifications/read-all` | Own notifications only |
-| PUT | `/notifications/{id}/read` | Owner only |
-| DELETE | `/notifications/{id}` | Owner only; soft delete |
-| GET | `/notifications/preferences` | Own preferences; types default to enabled |
-| PUT | `/notifications/preferences` | Own preferences; body `{"notification_type": "TASK_ASSIGNED", "enabled": false}` |
-
-Notifications are generated automatically for: Task Assigned, Task Reassigned,
-Task Deadline Updated, Task Completed, Added to Project, and Project Updated.
-Each carries a `notification_type` matching `NotificationType`; a user can
-opt out of any type via the preferences endpoints, in which case that type
-is silently suppressed at creation time.
-
-### Activity Logs
-
-| Method | Path | Access |
-|---|---|---|
-| GET | `/activities` | Admin only; supports `?date_from=&date_to=&action=&entity_type=&user_id=&page=&page_size=` |
-| GET | `/activities/user/{id}` | Self, or Admin for anyone |
-| GET | `/activities/project/{id}` | Anyone who can view the project (includes the project's own events plus all of its tasks' events) |
-| GET | `/activities/export/csv` | Admin only; same filters as `/activities`, streamed as a CSV download |
-
-Every significant action (signup, login, logout, project/task CRUD, member
-added, comments, attachments, status changes, assignment) writes an
-`ActivityLog` row via a FastAPI `BackgroundTask`, so the request completes
-without waiting on the log write.
-
-### Audit Logs
-
-| Method | Path | Access |
-|---|---|---|
-| GET | `/audit-logs` | Admin only; supports `?entity_type=&date_from=&date_to=&changed_by=&page=&page_size=` |
-| GET | `/audit-logs/{entity_type}/{entity_id}` | Anyone who can view that entity (e.g. `/audit-logs/Task/12`) |
-| GET | `/audit-logs/export/csv` | Admin only; same filters as `/audit-logs` |
-
-Audit logs are field-level, not action-level: a `Task.status` change from
-`Pending` to `In Progress` becomes one row with `old_value="Pending"`,
-`new_value="In Progress"`. Currently tracked: `Task.status`, `Task.priority`,
-`Task.title`, `Task.description`, `Task.due_date`, `Task.assigned_to`,
-`Project.name`, `Project.description`, and project membership additions.
-A row is only written when the value actually changes.
-
-## Getting Started
-
-### Local SQLite
-
-```bash
+```powershell
 python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-copy .env.example .env
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+Copy-Item .env.example .env
+# Edit DATABASE_URL and SECRET_KEY in .env. Create the PostgreSQL database first.
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-The API runs at `http://127.0.0.1:8000`. Swagger docs are available at
-`http://127.0.0.1:8000/docs`.
+The server is at http://localhost:8000. Interactive documentation is at `/docs`, ReDoc at `/redoc`, and the OpenAPI schema at `/openapi.json`. Canonical endpoints use `/api`; legacy unprefixed URLs remain available but are hidden from OpenAPI.
 
-`app/main.py` also calls `Base.metadata.create_all()` on startup as a local
-convenience. For production, run Alembic migrations explicitly.
-
-### Docker Compose
-
-```bash
+```powershell
 docker compose up --build
 ```
 
-This starts PostgreSQL, waits for it to be healthy, runs `alembic upgrade head`,
-and starts Uvicorn.
+Docker Compose starts PostgreSQL and applies migrations before the API starts. Configure `SECRET_KEY` in your environment. Keep uploaded files on persistent storage.
 
-## Running Tests
+## Authentication and tenant selection
 
-```bash
-pytest -v
+1. `POST /api/auth/register` with `full_name`, `email`, `password`, and `organization_name`. Registration creates a new organization and its first organization admin. Clients cannot choose a privileged role during registration.
+2. `POST /api/auth/login` uses form fields `username` (email) and `password`. Send `Authorization: Bearer <access_token>` to protected endpoints.
+3. A user can belong to several organizations with a different role in each. Set `X-Organization-ID` to select an organization. The backend checks active membership on every request. Without this header, the user's primary active organization is selected, falling back to another active membership when necessary.
+4. `POST /api/auth/refresh` accepts `refresh_token` and rotates it. Reusing a consumed token returns 401. Refresh tokens are stored hashed and expire. `POST /api/auth/logout` accepts the refresh token and revokes that session's refresh token. Existing access tokens expire naturally.
+5. `POST /api/auth/change-password` accepts `current_password` and `new_password`, and revokes every refresh token for the user.
+
+Inactive accounts cannot authenticate. Removed/deactivated memberships cannot access that organization. Active memberships in other organizations remain usable.
+
+A super admin is a global account provisioned locally, never by registration or organization role changes:
+
+```powershell
+python -m app.cli create-super-admin --email admin@example.com --name "Platform Admin"
 ```
 
-The tests use an isolated in-memory SQLite database and do not touch
-`pm_api.db`.
+Super admins can inspect resources across organizations. Select `X-Organization-ID` when creating projects, requesting a tenant dashboard, or processing that tenant's reminders.
 
-## Data Model
+## Authorization
 
-See [docs/SCHEMA.md](docs/SCHEMA.md) for the ER diagram.
+| Role | Permissions |
+|---|---|
+| Super Admin | Global administration; tenant selection for tenant-bound creation |
+| Organization Admin | Organization members, all projects/tasks in that tenant, dashboards and full tenant audit feeds |
+| Project Manager | Create projects; manage projects they own, their members, tasks and dependencies |
+| Team Member | Read joined projects and tasks; comment/upload files; update status and actual hours on assigned tasks |
+| Viewer | Read joined projects/tasks, comments/files; cannot edit or receive assignments |
 
-- **User**: authentication and role data.
-- **Project**: project record with soft delete.
-- **ProjectMember**: many-to-many project membership join table.
-- **Task**: project task with status, priority, assignee, and soft delete.
-- **TaskComment**: task discussion entries.
-- **TaskAttachment**: uploaded file metadata.
-- **ActivityLog**: append-only log of *actions* (who did what), e.g. `TASK_CREATED`, `LOGIN`.
-- **Notification**: per-user notifications with soft delete and an optional `notification_type`.
-- **NotificationPreference**: per-user, per-type opt-out switch (types default to enabled).
-- **AuditLog**: append-only log of *field-level changes* (old value -> new value), e.g. `Task.status: Pending -> Completed`.
+Every resource request is checked against the tenant and project permissions. Project owners are automatically added as project members. Assignments require active organization and project membership, an active account, and a non-viewer role. Unassign tasks before removing a member, deactivating membership, or changing the member to viewer. The last active organization admin cannot be removed or demoted.
 
-## Extra Features
+## Workflow
 
-### Notification & Activity Tracking System
+Projects: `planning -> active`, `active -> on_hold/completed`, `on_hold -> active`, `completed -> active`. Any non-archived project can be archived; `archived -> planning` restores it. Tasks, comments, files and membership cannot be modified while archived.
 
-- Automatic notifications for task assignment, reassignment, deadline
-  changes, completion, project updates, and being added to a project.
-- Per-user notification preferences to opt out of any notification type.
-- Soft-deleted notifications (kept for history, hidden from the user's inbox).
-- Full activity feed with admin-wide, per-user, and per-project views, filterable
-  by date range, action type, and entity type.
-- Field-level audit trail for tasks (status, priority, title, description,
-  due date, assignee) and projects (name, description, membership), with a
-  per-entity history endpoint (`/audit-logs/{entity_type}/{entity_id}`).
-- CSV export for both the activity feed and the audit trail.
-- All logging/notification/email side effects run via FastAPI `BackgroundTasks`,
-  so writes don't block the API response.
-- Email notification hook (stubbed; logs instead of sending unless
-  `EMAIL_NOTIFICATIONS_ENABLED=true`) for task assignment and deadline changes.
+Tasks: `backlog -> todo`, `todo -> in_progress`, `in_progress -> review`, `review -> done`. Blocking and returning to earlier work states are supported; see [API reference](docs/API.md) for the complete transition table. Invalid transitions return 409. Legacy task inputs `Pending`, `In Progress`, and `Completed` are accepted as aliases; responses use canonical lowercase values.
 
-### Other
+Dependencies stay within one project. Cycles and duplicates are rejected. Unfinished prerequisites block entry into in-progress/review/done. Remove dependency links before moving tasks to another project or deleting a prerequisite. Moves stay within the same organization and revalidate the assignee's destination membership.
 
-- Pagination and filtering for project and task lists.
-- Soft deletes for projects and tasks.
-- Postman collection in [postman_collection.json](postman_collection.json).
+## Comments, files, notifications and jobs
+
+Project and task comments support add/list and author-only edit/delete. `@email-prefix` or `@full-email` mentions notify active project members. Other project participants receive comment notifications.
+
+Uploads support UTF-8 TXT/CSV, PNG/JPEG, and non-encrypted PDF. MIME, extension, file size and parsed content are checked. Default size limit is 10 MiB. Storage names use random UUIDs. Downloads pass through authenticated resource checks. Legacy attachments have `application/octet-stream`/0 metadata until replaced; storage paths are never exposed by the new API.
+
+Notifications cover assignment/reassignment, status changes, comments/mentions, project membership, deadlines, completion, due-soon and overdue tasks. Use `/api/notifications` and PATCH read/read-all endpoints. Notification preferences apply per user. Inboxes are scoped to the selected tenant.
+
+Due-soon/overdue processing runs in a FastAPI lifespan background task every `REMINDER_INTERVAL_SECONDS` (3600 by default). The first scheduled run occurs after that interval. Admins can trigger `/api/notifications/process-reminders`. A unique delivery record prevents repeated reminders for the same task/user/type/UTC day. Reminders consider tasks due within 24 hours. Dashboard 'today' boundaries are UTC; recently completed means the last seven days.
+
+Activity and field-change audit records are written in the resource transaction, with organization, user, action/entity, timestamp, IP and metadata. APIs expose read/filter/export only. Authentication activity uses the existing background task mechanism. WebSocket push and real email delivery are optional and are not enabled; the existing email helper is a logging stub.
+
+## Validation
+
+```powershell
+python -m pytest -q
+# Run the same API suite against PostgreSQL in a temporary, isolated schema:
+$env:PM_TEST_POSTGRES = '1'
+python -m pytest -q
+Remove-Item Env:PM_TEST_POSTGRES
+# Verify migrations in another temporary schema, including legacy-data upgrade:
+$env:PYTHONPATH = (Get-Location).Path
+python tests/verify_migrations.py
+```
+
+PostgreSQL tests require permission to create/drop their generated temporary schemas. They never migrate or clear the public schema. The default suite uses an in-memory SQLite database and temporary upload directories.
+
+## Deliverables
+
+- [API reference](docs/API.md) and generated Swagger/ReDoc
+- [Postman collection](postman_collection.json)
+- [ER diagram](docs/SCHEMA.md)
+- [Architecture diagram](docs/ARCHITECTURE.md)
+- `.env.example`, Alembic migrations, automated tests, Dockerfile and Docker Compose
+
+The tenant migration preserves pre-tenant rows in a legacy organization. Its downgrade intentionally refuses to merge tenant data back into an unscoped schema. Apply `alembic upgrade head` after updating code. Back up existing data before schema upgrades as part of your normal database deployment process.

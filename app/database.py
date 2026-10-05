@@ -1,23 +1,41 @@
+from collections.abc import Generator
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from .config import settings
+from app.config import settings
 
-connect_args = (
-    {"check_same_thread": False}
-    if settings.DATABASE_URL.startswith("sqlite")
-    else {}
+
+class Base(DeclarativeBase):
+    pass
+
+
+engine = create_engine(
+    settings.DATABASE_URL,
+    pool_pre_ping=True,
+    pool_size=10,
+    max_overflow=20,
+    future=True,
 )
 
-engine = create_engine(settings.DATABASE_URL, connect_args=connect_args)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(
+    bind=engine, 
+    autoflush=False, 
+    autocommit=False, future=True
+    )
 
-Base = declarative_base()
 
-
-def get_db():
+def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+
+def create_all() -> None:
+    # Import models so their tables are registered on Base.metadata.
+    from app import models  # noqa: F401
+
+    Base.metadata.create_all(bind=engine)
+

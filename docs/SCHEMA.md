@@ -1,131 +1,200 @@
-﻿# Database Schema Diagram
+# Database ER diagram
 
-Rendered automatically by GitHub when viewing this file as a Mermaid ER diagram.
+Generated from the SQLAlchemy models. Roles are stored as enums on accounts and tenant-specific strings on organization memberships. Comments/files inherit tenant authorization from their project or task.
 
 ```mermaid
 erDiagram
-    USERS ||--o{ PROJECTS : "creates"
-    USERS ||--o{ PROJECT_MEMBERS : "belongs to"
-    USERS ||--o{ TASKS : "created_by"
-    USERS ||--o{ TASKS : "assigned_to"
-    USERS ||--o{ TASK_COMMENTS : "writes"
-    USERS ||--o{ TASK_ATTACHMENTS : "uploads"
-    USERS ||--o{ ACTIVITY_LOGS : "performs"
-    USERS ||--o{ NOTIFICATIONS : "receives"
-    USERS ||--o{ NOTIFICATION_PREFERENCES : "sets"
+    ORGANIZATIONS ||--o{ USERS : "organization_id"
+    ORGANIZATIONS ||--o{ ACTIVITY_LOGS : "organization_id"
+    USERS ||--o{ ACTIVITY_LOGS : "user_id"
     USERS ||--o{ AUDIT_LOGS : "changed_by"
-
-    PROJECTS ||--o{ PROJECT_MEMBERS : "has"
-    PROJECTS ||--o{ TASKS : "contains"
-
-    TASKS ||--o{ TASK_COMMENTS : "has"
-    TASKS ||--o{ TASK_ATTACHMENTS : "has"
-
+    ORGANIZATIONS ||--o{ AUDIT_LOGS : "organization_id"
+    USERS ||--o{ NOTIFICATION_PREFERENCES : "user_id"
+    USERS ||--o{ NOTIFICATIONS : "user_id"
+    ORGANIZATIONS ||--o{ NOTIFICATIONS : "organization_id"
+    USERS ||--o{ ORGANIZATION_MEMBERS : "user_id"
+    ORGANIZATIONS ||--o{ ORGANIZATION_MEMBERS : "organization_id"
+    USERS ||--o{ PROJECTS : "created_by"
+    ORGANIZATIONS ||--o{ PROJECTS : "organization_id"
+    USERS ||--o{ REFRESH_TOKENS : "user_id"
+    USERS ||--o{ PROJECT_ATTACHMENTS : "uploaded_by"
+    PROJECTS ||--o{ PROJECT_ATTACHMENTS : "project_id"
+    USERS ||--o{ PROJECT_COMMENTS : "user_id"
+    PROJECTS ||--o{ PROJECT_COMMENTS : "project_id"
+    PROJECTS ||--o{ PROJECT_MEMBERS : "project_id"
+    ORGANIZATIONS ||--o{ PROJECT_MEMBERS : "organization_id"
+    USERS ||--o{ PROJECT_MEMBERS : "user_id"
+    USERS ||--o{ TASKS : "created_by"
+    ORGANIZATIONS ||--o{ TASKS : "organization_id"
+    USERS ||--o{ TASKS : "assigned_to"
+    PROJECTS ||--o{ TASKS : "project_id"
+    TASKS ||--o{ REMINDER_DELIVERIES : "task_id"
+    USERS ||--o{ REMINDER_DELIVERIES : "user_id"
+    USERS ||--o{ TASK_ATTACHMENTS : "uploaded_by"
+    TASKS ||--o{ TASK_ATTACHMENTS : "task_id"
+    USERS ||--o{ TASK_COMMENTS : "user_id"
+    TASKS ||--o{ TASK_COMMENTS : "task_id"
+    TASKS ||--o{ TASK_DEPENDENCIES : "depends_on_id"
+    TASKS ||--o{ TASK_DEPENDENCIES : "task_id"
+    ORGANIZATIONS {
+        integer id PK
+        string name
+        string slug UK
+        boolean is_active
+        datetime created_at
+    }
     USERS {
-        int id PK
+        integer id PK
+        integer organization_id FK
         string full_name
         string email UK
         string password
-        enum role "admin | manager | member"
-        bool is_active
+        enum role
+        boolean is_active
         datetime created_at
     }
-
+    ACTIVITY_LOGS {
+        string ip_address
+        json metadata
+        integer id PK
+        integer user_id FK
+        integer organization_id FK
+        string action
+        string entity_type
+        integer entity_id
+        text description
+        datetime created_at
+    }
+    AUDIT_LOGS {
+        string ip_address
+        json metadata
+        integer id PK
+        integer organization_id FK
+        string entity_type
+        integer entity_id
+        string field_name
+        text old_value
+        text new_value
+        integer changed_by FK
+        datetime changed_at
+    }
+    NOTIFICATION_PREFERENCES {
+        integer id PK
+        integer user_id FK
+        string notification_type
+        boolean enabled
+    }
+    NOTIFICATIONS {
+        integer id PK
+        integer user_id FK
+        integer organization_id FK
+        string title
+        text message
+        string notification_type
+        boolean is_read
+        boolean is_deleted
+        datetime created_at
+    }
+    ORGANIZATION_MEMBERS {
+        integer id PK
+        integer organization_id FK
+        integer user_id FK
+        string role
+        boolean is_active
+        datetime created_at
+    }
     PROJECTS {
-        int id PK
+        integer id PK
+        integer organization_id FK
         string name
         text description
-        int created_by FK
+        integer created_by FK
         datetime created_at
-        bool is_deleted
-    }
-
-    PROJECT_MEMBERS {
-        int id PK
-        int project_id FK
-        int user_id FK
-        datetime added_at
-    }
-
-    TASKS {
-        int id PK
-        string title
-        text description
-        enum status "Pending | In Progress | Completed"
-        enum priority "Low | Medium | High"
+        enum status
+        datetime start_date
         datetime due_date
-        int assigned_to FK
-        int project_id FK
-        int created_by FK
-        datetime created_at
-        bool is_deleted
+        datetime updated_at
+        boolean is_deleted
     }
-
-    TASK_COMMENTS {
-        int id PK
-        int task_id FK
-        int user_id FK
+    REFRESH_TOKENS {
+        integer id PK
+        string token UK
+        integer user_id FK
+        datetime expires_at
+        datetime created_at
+    }
+    PROJECT_ATTACHMENTS {
+        integer id PK
+        integer project_id FK
+        integer uploaded_by FK
+        string filename
+        string filepath
+        string mime_type
+        integer file_size
+        datetime uploaded_at
+    }
+    PROJECT_COMMENTS {
+        integer id PK
+        integer project_id FK
+        integer user_id FK
         text comment
         datetime created_at
+        datetime updated_at
     }
-
+    PROJECT_MEMBERS {
+        integer id PK
+        integer organization_id FK
+        integer project_id FK
+        integer user_id FK
+        datetime added_at
+    }
+    TASKS {
+        integer id PK
+        integer organization_id FK
+        string title
+        text description
+        enum status
+        enum priority
+        datetime due_date
+        integer assigned_to FK
+        integer project_id FK
+        integer created_by FK
+        datetime created_at
+        float estimated_hours
+        float actual_hours
+        datetime updated_at
+        datetime completed_at
+        boolean is_deleted
+    }
+    REMINDER_DELIVERIES {
+        integer id PK
+        integer task_id FK
+        integer user_id FK
+        string kind
+        string day
+    }
     TASK_ATTACHMENTS {
-        int id PK
-        int task_id FK
-        int uploaded_by FK
+        integer id PK
+        integer task_id FK
+        integer uploaded_by FK
+        string mime_type
+        integer file_size
         string filename
         string filepath
         datetime uploaded_at
     }
-
-    ACTIVITY_LOGS {
-        int id PK
-        int user_id FK
-        string action
-        string entity_type
-        int entity_id
-        text details
-        datetime timestamp
-    }
-
-    NOTIFICATIONS {
-        int id PK
-        int user_id FK
-        string title
-        text message
-        string notification_type
-        bool is_read
-        bool is_deleted
+    TASK_COMMENTS {
+        integer id PK
+        integer task_id FK
+        integer user_id FK
+        text comment
         datetime created_at
     }
-
-    NOTIFICATION_PREFERENCES {
-        int id PK
-        int user_id FK
-        string notification_type
-        bool enabled
-    }
-
-    AUDIT_LOGS {
-        int id PK
-        string entity_type
-        int entity_id
-        string field_name
-        text old_value
-        text new_value
-        int changed_by FK
-        datetime changed_at
+    TASK_DEPENDENCIES {
+        integer id PK
+        integer task_id FK
+        integer depends_on_id FK
     }
 ```
 
-## Relationship Notes
-
-- **Users to Projects**: one-to-many via `Project.created_by`. A project always has exactly one creator.
-- **Users to Projects membership**: many-to-many through `ProjectMember`, with `(project_id, user_id)` unique.
-- **Projects to Tasks**: one-to-many. The API uses soft delete, while ORM cascades help with hard-delete cleanup.
-- **Users to Tasks assignment**: one-to-many via nullable `Task.assigned_to`.
-- **Tasks to Comments and Attachments**: one-to-many, cascade-deleted with the parent task at the ORM level.
-- **ActivityLogs**: append-only audit trail using `entity_type` and `entity_id` for loose references (records *actions*, e.g. `TASK_CREATED`, `LOGIN`).
-- **Notifications**: one-to-many from User; soft-deleted via `is_deleted` rather than hard-deleted, so a user's notification history survives even after they clear their inbox. `notification_type` matches the `NotificationType` enum and is used to check `NotificationPreference` opt-outs before a notification is created.
-- **NotificationPreferences**: one-to-many from User, unique on `(user_id, notification_type)`. Absence of a row means the notification type defaults to enabled; a row with `enabled=false` is an explicit opt-out.
-- **AuditLogs**: distinct from ActivityLogs — records *field-level state transitions* (old value -> new value) rather than actions. Loosely referenced via `entity_type`/`entity_id`, same pattern as ActivityLogs, so both Task and Project changes share one table. A row is only written when the old and new values actually differ.
+Organization and project memberships have unique `(organization_id, user_id)` and `(project_id, user_id)` pairs. Task dependency pairs are unique with a self-reference check. Refresh token hashes and organization slugs are unique. Reminder deliveries are unique by task/user/type/UTC day. Foreign keys and ORM cascades define cleanup; projects/tasks use soft delete through the API. Global super-admin authentication events may have no organization.

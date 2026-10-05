@@ -3,22 +3,36 @@ from __future__ import annotations
 from datetime import datetime
 import enum
 
-from sqlalchemy import DateTime, Enum as SQLEnum, ForeignKey, Integer, String, Text, Boolean, func
+from sqlalchemy import DateTime, Enum as SQLEnum, ForeignKey, Integer, String, Text, Boolean, Float, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
 
 
 class StatusEnum(str, enum.Enum):
-    pending = "Pending"
-    in_progress = "In Progress"
-    completed = "Completed"
+    backlog = "backlog"
+    todo = "todo"
+    in_progress = "in_progress"
+    blocked = "blocked"
+    review = "review"
+    done = "done"
+    cancelled = "cancelled"
+    pending = "todo"
+    completed = "done"
+
+    @classmethod
+    def _missing_(cls, value):
+        return {"Pending": cls.todo, "In Progress": cls.in_progress, "Completed": cls.done}.get(value)
 
 
 class PriorityEnum(str, enum.Enum):
-    low = "Low"
-    medium = "Medium"
-    high = "High"
+    low = "low"
+    medium = "medium"
+    high = "high"
+
+    @classmethod
+    def _missing_(cls, value):
+        return {"Low": cls.low, "Medium": cls.medium, "High": cls.high}.get(value)
 
 
 class Task(Base):
@@ -26,6 +40,19 @@ class Task(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
+    # ============================================================
+    # TENANT / ORGANIZATION
+    # ============================================================
+
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            "organizations.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+    
     title: Mapped[str] = mapped_column(
         String(200),
         nullable=False,
@@ -44,7 +71,7 @@ class Task(Base):
         default=PriorityEnum.medium,
     )
 
-    due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
     assigned_to: Mapped[int | None] = mapped_column(
         Integer,
@@ -56,6 +83,16 @@ class Task(Base):
         ForeignKey("projects.id"),
     )
 
+    
+    # ============================================================
+    # ORGANIZATION
+    # ============================================================
+
+    organization = relationship(
+        "Organization",
+        back_populates="tasks",
+    )
+ 
     created_by: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("users.id"),
@@ -65,6 +102,11 @@ class Task(Base):
         DateTime(timezone=True),
         server_default=func.now(),
     )
+
+    estimated_hours: Mapped[float | None] = mapped_column(Float)
+    actual_hours: Mapped[float | None] = mapped_column(Float)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     is_deleted: Mapped[bool] = mapped_column(
         Boolean,
@@ -140,6 +182,8 @@ class TaskAttachment(Base):
         ForeignKey("users.id"),
     )
 
+    mime_type: Mapped[str] = mapped_column(String(100), default="application/octet-stream")
+    file_size: Mapped[int] = mapped_column(Integer, default=0)
     filename: Mapped[str] = mapped_column(String(255))
 
     filepath: Mapped[str] = mapped_column(String(500))

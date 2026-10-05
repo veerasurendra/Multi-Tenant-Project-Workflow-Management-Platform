@@ -10,6 +10,11 @@ from ..database import Base
 
 
 class NotificationType(str, enum.Enum):
+    task_status_changed = "task_status_changed"
+    comment_added = "comment_added"
+    user_mentioned = "user_mentioned"
+    task_due_soon = "task_due_soon"
+    task_overdue = "task_overdue"
     task_assigned = "TASK_ASSIGNED"
     task_reassigned = "TASK_REASSIGNED"
     task_deadline_updated = "TASK_DEADLINE_UPDATED"
@@ -33,6 +38,28 @@ class Notification(Base):
         index=True,
     )
 
+    # ============================================================
+    # TENANT / ORGANIZATION
+    # ============================================================
+
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            "organizations.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+    
+    # ============================================================
+    # ORGANIZATION
+    # ============================================================
+
+    organization = relationship(
+        "Organization",
+        back_populates="notifications",
+    )
+     
     title: Mapped[str] = mapped_column(
         String(200),
         nullable=False,

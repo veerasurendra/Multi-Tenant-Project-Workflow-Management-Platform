@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
@@ -16,6 +16,9 @@ class AuditLog(Base):
     entity, e.g. Task.status: Pending -> In Progress.
     """
 
+    ip_address: Mapped[str | None] = mapped_column(String(45))
+    event_metadata: Mapped[dict | None] = mapped_column("metadata", JSON)
+
     __tablename__ = "audit_logs"
 
     id: Mapped[int] = mapped_column(
@@ -24,6 +27,18 @@ class AuditLog(Base):
         index=True,
     )
 
+    # ============================================================
+    # TENANT / ORGANIZATION
+    # ============================================================
+
+    organization_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "organizations.id",
+            ondelete="CASCADE",
+        ),
+        nullable=True,
+        index=True,
+    )
     entity_type: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
@@ -34,6 +49,15 @@ class AuditLog(Base):
         Integer,
         nullable=False,
         index=True,
+    )
+    
+    # ============================================================
+    # ORGANIZATION
+    # ============================================================
+
+    organization = relationship(
+        "Organization",
+        back_populates="audit_logs",
     )
 
     field_name: Mapped[str] = mapped_column(

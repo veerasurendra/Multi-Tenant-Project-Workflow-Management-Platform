@@ -62,8 +62,8 @@ def test_project_members_list_includes_user_name(client, manager_headers, member
     resp = client.get(f"/projects/{project_id}/members", headers=manager_headers)
     assert resp.status_code == 200
     members = resp.json()
-    assert members[0]["user_id"] == me["id"]
-    assert members[0]["user_name"] == me["full_name"]
+    member = next(m for m in members if m["user_id"] == me["id"])
+    assert member["user_name"] == me["full_name"]
 
 
 def test_manager_cannot_update_project_owned_by_another_manager(client, manager_headers, admin_headers):
@@ -110,20 +110,9 @@ def test_admin_can_update_and_delete_any_project(client, manager_headers, admin_
 
 
 def _register_second_manager(client):
-    client.post(
-        "/auth/signup",
-        json={
-            "full_name": "Manager Two",
-            "email": "manager2@example.com",
-            "password": "password123",
-            "role": "manager",
-        },
-    )
-    resp = client.post(
-        "/auth/login", data={"username": "manager2@example.com", "password": "password123"}
-    )
-    token = resp.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+    from tests.conftest import register_and_login
+    return register_and_login(client, "manager2@example.com", role="manager")
+
 
 
 def test_only_admin_can_delete_project(client, manager_headers, admin_headers):

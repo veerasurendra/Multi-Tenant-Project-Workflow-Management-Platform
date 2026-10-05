@@ -5,7 +5,7 @@ def test_signup_success(client):
             "full_name": "Jane Doe",
             "email": "jane@example.com",
             "password": "password123",
-            "role": "member",
+            "organization_name": "Jane Organization",
         },
     )
     assert resp.status_code == 201
@@ -19,7 +19,7 @@ def test_signup_duplicate_email_rejected(client):
         "full_name": "Jane Doe",
         "email": "dup@example.com",
         "password": "password123",
-        "role": "member",
+        "organization_name": "Jane Organization",
     }
     client.post("/auth/signup", json=payload)
     resp = client.post("/auth/signup", json=payload)
@@ -33,7 +33,7 @@ def test_login_wrong_password_rejected(client):
             "full_name": "Jane Doe",
             "email": "jane2@example.com",
             "password": "password123",
-            "role": "member",
+            "organization_name": "Jane Organization",
         },
     )
     resp = client.post(
@@ -50,7 +50,7 @@ def test_me_requires_token(client):
 def test_me_returns_current_user(client, member_headers):
     resp = client.get("/auth/me", headers=member_headers)
     assert resp.status_code == 200
-    assert resp.json()["role"] == "member"
+    assert resp.json()["role"] == "team_member"
 
 
 def test_malformed_token_subject_is_rejected(client):

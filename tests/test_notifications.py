@@ -165,7 +165,9 @@ def test_task_reassignment_and_completion_notifications(client, manager_headers,
     assert any(n["title"] == "Task Reassigned" for n in notifications)
 
     # Member marks task completed -> creator (manager) should be notified.
-    client.put(f"/tasks/{task['id']}", json={"status": "Completed"}, headers=member_headers)
+    for workflow_status in ("in_progress", "review", "done"):
+        response = client.put(f"/tasks/{task['id']}", json={"status": workflow_status}, headers=member_headers)
+        assert response.status_code == 200
     manager_notifications = client.get("/notifications", headers=manager_headers).json()
     assert any(n["title"] == "Task Completed" for n in manager_notifications)
 

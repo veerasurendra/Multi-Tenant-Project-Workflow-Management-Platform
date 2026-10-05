@@ -7,6 +7,7 @@ class TaskAttachmentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    organization_id: int
     task_id: int
     uploaded_by: int
     filename: str

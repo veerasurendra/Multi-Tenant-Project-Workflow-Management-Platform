@@ -14,6 +14,8 @@ class TaskCreate(BaseModel):
     due_date: Optional[datetime] = None
     assigned_to: Optional[int] = None
     project_id: int
+    estimated_hours: float | None = Field(None, ge=0)
+    actual_hours: float | None = Field(None, ge=0)
 
 
 class TaskUpdate(BaseModel):
@@ -25,6 +27,11 @@ class TaskUpdate(BaseModel):
     assigned_to: Optional[int] = None
 
 
+    project_id: int | None = None
+    estimated_hours: float | None = Field(None, ge=0)
+    actual_hours: float | None = Field(None, ge=0)
+
+
 class TaskStatusUpdate(BaseModel):
     status: StatusEnum
 
@@ -32,6 +39,11 @@ class TaskStatusUpdate(BaseModel):
 class TaskOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    organization_id: int
+    estimated_hours: float | None
+    actual_hours: float | None
+    updated_at: datetime
+    completed_at: datetime | None
     id: int
     title: str
     description: Optional[str]

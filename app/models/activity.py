@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
 
 
 class ActivityLog(Base):
+    ip_address: Mapped[str | None] = mapped_column(String(45))
+    event_metadata: Mapped[dict | None] = mapped_column("metadata", JSON)
+
     __tablename__ = "activity_logs"
 
     id: Mapped[int] = mapped_column(
@@ -21,6 +24,24 @@ class ActivityLog(Base):
         ForeignKey("users.id"),
         nullable=False,
         index=True,
+    )
+
+    # ============================================================
+    # TENANT / ORGANIZATION
+    # ============================================================
+
+    organization_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "organizations.id",
+            ondelete="CASCADE",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    organization = relationship(
+        "Organization",
+        back_populates="activities",
     )
 
     action: Mapped[str] = mapped_column(

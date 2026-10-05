@@ -11,12 +11,16 @@ def _setup_project_with_member(client, manager_headers, member_headers):
 
 
 def test_login_and_signup_are_logged(client, admin_headers):
-    admin_me = client.get("/auth/me", headers=admin_headers).json()
-    resp = client.get("/activities", headers=admin_headers)
+    response = client.post("/api/auth/register", json={"full_name": "New Admin", "email": "new-admin@example.com", "password": "password123", "organization_name": "New organization"})
+    assert response.status_code == 201
+    login = client.post("/api/auth/login", data={"username": "new-admin@example.com", "password": "password123"})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    resp = client.get("/activities", headers=headers)
     assert resp.status_code == 200
     actions = [a["action"] for a in resp.json()["items"]]
     assert "SIGNUP" in actions
     assert "LOGIN" in actions
+
 
 
 def test_non_admin_cannot_view_full_feed(client, member_headers):
@@ -25,7 +29,8 @@ def test_non_admin_cannot_view_full_feed(client, member_headers):
 
 
 def test_logout_is_logged(client, member_headers):
-    resp = client.post("/auth/logout", headers=member_headers)
+    login = client.post("/auth/login", data={"username": "member@example.com", "password": "password123"}).json()
+    resp = client.post("/auth/logout", json={"refresh_token": login["refresh_token"]}, headers=member_headers)
     assert resp.status_code == 200
 
     me = client.get("/auth/me", headers=member_headers).json()
@@ -71,15 +76,8 @@ def test_project_activity_forbidden_for_non_members(client, manager_headers, mem
     # A second, unrelated member should not see this project's activity.
     project_id, _ = _setup_project_with_member(client, manager_headers, member_headers)
 
-    outsider_headers = admin_headers  # admins can view anything, so use a real outsider instead
-    resp = client.post(
-        "/auth/signup",
-        json={"full_name": "Outsider", "email": "outsider@example.com", "password": "password123", "role": "member"},
-    )
-    login = client.post(
-        "/auth/login", data={"username": "outsider@example.com", "password": "password123"}
-    ).json()
-    outsider_headers = {"Authorization": f"Bearer {login['access_token']}"}
+    from tests.conftest import register_and_login
+    outsider_headers = register_and_login(client, "outsider@example.com")
 
     resp = client.get(f"/activities/project/{project_id}", headers=outsider_headers)
     assert resp.status_code == 403

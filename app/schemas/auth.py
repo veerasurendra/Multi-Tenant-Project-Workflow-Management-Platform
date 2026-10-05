@@ -7,10 +7,30 @@ from ..models import RoleEnum
 
 
 class UserCreate(BaseModel):
-    full_name: str = Field(..., min_length=1, max_length=120)
+
+    organization_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=120,
+    )
+
+    full_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=120,
+    )
+
     email: EmailStr
-    password: str = Field(..., min_length=6)
-    role: RoleEnum = RoleEnum.member
+
+    password: str = Field(
+        ...,
+        min_length=8,
+        max_length=72,
+    )
+
+    #role: RoleEnum = RoleEnum.viewer
+
+    #organization_id: Optional[int] = None
 
 
 class UserLogin(BaseModel):
@@ -22,6 +42,8 @@ class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    organization_id: Optional[int]
+    organization_name: Optional[str] = None
     full_name: str
     email: EmailStr
     role: RoleEnum
@@ -29,27 +51,20 @@ class UserOut(BaseModel):
     created_at: datetime
 
 
-# -------------------------
-# Login Response
-# -------------------------
 class Token(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
 
 
-# -------------------------
-# Refresh Request
-# -------------------------
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
+
 
 class LogoutRequest(BaseModel):
     refresh_token: str
 
-# -------------------------
-# Refresh Response
-# -------------------------
+
 class AccessTokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

@@ -49,7 +49,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_notification_preferences_id'), 'notification_preferences', ['id'], unique=False)
     op.create_index(op.f('ix_notification_preferences_user_id'), 'notification_preferences', ['user_id'], unique=False)
     op.add_column('notifications', sa.Column('notification_type', sa.String(length=50), nullable=True))
-    op.add_column('notifications', sa.Column('is_deleted', sa.Boolean(), server_default=sa.text('0'), nullable=False))
+    op.add_column('notifications', sa.Column('is_deleted', sa.Boolean(), server_default=sa.false(), nullable=False))
     op.create_index(op.f('ix_notifications_created_at'), 'notifications', ['created_at'], unique=False)
     op.create_index(op.f('ix_notifications_notification_type'), 'notifications', ['notification_type'], unique=False)
     # ### end Alembic commands ###

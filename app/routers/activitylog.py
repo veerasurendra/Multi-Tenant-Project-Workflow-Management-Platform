@@ -60,7 +60,7 @@ def all_activities(
     if not is_admin(current_user):
         raise HTTPException(status_code=403, detail="Only admins can view the full activity feed")
 
-    query = db.query(models.ActivityLog)
+    query = db.query(models.ActivityLog).filter(True if current_user.role == models.RoleEnum.super_admin and current_user.organization_id is None else models.ActivityLog.organization_id == current_user.organization_id)
     query = _apply_filters(query, date_from, date_to, action, entity_type)
     if user_id:
         query = query.filter(models.ActivityLog.user_id == user_id)
@@ -92,7 +92,7 @@ def user_activities(
     if not is_admin(current_user) and current_user_id != user_id:
         raise HTTPException(status_code=403, detail="You can only view your own activity history")
 
-    query = db.query(models.ActivityLog).filter(models.ActivityLog.user_id == user_id)
+    query = db.query(models.ActivityLog).filter(True if current_user.role == models.RoleEnum.super_admin and current_user.organization_id is None else models.ActivityLog.organization_id == current_user.organization_id).filter(models.ActivityLog.user_id == user_id)
     query = _apply_filters(query, date_from, date_to, action, entity_type)
 
     total = query.count()
@@ -117,7 +117,11 @@ def project_activities(
     page_size: int = Query(20, ge=1, le=200),
 ):
     """All activity tied to a project: the project itself plus its tasks."""
-    project = get_project_or_404(db, project_id)
+    project = get_project_or_404(
+    db,
+    project_id,
+    current_user,
+)
     ensure_can_view_project(db, current_user, project)
 
     task_ids = [
@@ -125,7 +129,7 @@ def project_activities(
         for row in db.query(models.Task.id).filter(models.Task.project_id == project_id).all()
     ]
 
-    query = db.query(models.ActivityLog).filter(
+    query = db.query(models.ActivityLog).filter(True if current_user.role == models.RoleEnum.super_admin and current_user.organization_id is None else models.ActivityLog.organization_id == current_user.organization_id).filter(
         (
             (models.ActivityLog.entity_type == "Project")
             & (models.ActivityLog.entity_id == project_id)
@@ -160,7 +164,7 @@ def export_activities_csv(
     if not is_admin(current_user):
         raise HTTPException(status_code=403, detail="Only admins can export the activity log")
 
-    query = db.query(models.ActivityLog)
+    query = db.query(models.ActivityLog).filter(True if current_user.role == models.RoleEnum.super_admin and current_user.organization_id is None else models.ActivityLog.organization_id == current_user.organization_id)
     query = _apply_filters(query, date_from, date_to, action, entity_type)
     rows = query.order_by(models.ActivityLog.created_at.desc()).all()
 

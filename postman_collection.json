@@ -1,0 +1,3661 @@
+{
+  "info": {
+    "name": "Multi-Tenant Project Workflow API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Register then login; IDs/tokens are captured from creation responses. Enable X-Organization-ID to switch tenant; choose an upload file manually."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "refresh_token",
+      "value": ""
+    },
+    {
+      "key": "organization_id",
+      "value": "1"
+    },
+    {
+      "key": "project_id",
+      "value": "1"
+    },
+    {
+      "key": "task_id",
+      "value": "1"
+    },
+    {
+      "key": "user_id",
+      "value": "1"
+    },
+    {
+      "key": "comment_id",
+      "value": "1"
+    },
+    {
+      "key": "attachment_id",
+      "value": "1"
+    },
+    {
+      "key": "depends_on_id",
+      "value": "1"
+    },
+    {
+      "key": "notification_id",
+      "value": "1"
+    },
+    {
+      "key": "entity_id",
+      "value": "1"
+    },
+    {
+      "key": "entity_type",
+      "value": "Task"
+    }
+  ],
+  "item": [
+    {
+      "name": "POST /api/auth/register",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/auth/register",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "register"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"organization_name\": \"Example Organization\",\n  \"full_name\": \"Organization Admin\",\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const result = pm.response.json();",
+              "  pm.collectionVariables.set(\"user_id\", result.id);",
+              "  pm.collectionVariables.set(\"organization_id\", result.organization_id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /api/auth/login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/auth/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "username",
+              "value": "admin@example.com",
+              "type": "text"
+            },
+            {
+              "key": "password",
+              "value": "password123",
+              "type": "text"
+            }
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const result = pm.response.json();",
+              "  pm.collectionVariables.set(\"access_token\", result.access_token);",
+              "  pm.collectionVariables.set(\"refresh_token\", result.refresh_token);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "DELETE /api/notifications/{notification_id}",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/notifications/{{notification_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "notifications",
+            "{{notification_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "DELETE /api/organizations/{organization_id}/members/{user_id}",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/organizations/{{organization_id}}/members/{{user_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "organizations",
+            "{{organization_id}}",
+            "members",
+            "{{user_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "DELETE /api/projects/{project_id}",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/projects/{{project_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "projects",
+            "{{project_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "DELETE /api/projects/{project_id}/members/{user_id}",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/projects/{{project_id}}/members/{{user_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "projects",
+            "{{project_id}}",
+            "members",
+            "{{user_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "DELETE /api/projects/{resource_id}/comments/{comment_id}",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/projects/{{project_id}}/comments/{{comment_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "projects",
+            "{{project_id}}",
+            "comments",
+            "{{comment_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "DELETE /api/tasks/{resource_id}/comments/{comment_id}",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}/comments/{{comment_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}",
+            "comments",
+            "{{comment_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "DELETE /api/tasks/{task_id}",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "DELETE /api/tasks/{task_id}/dependencies/{depends_on_id}",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}/dependencies/{{depends_on_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}",
+            "dependencies",
+            "{{depends_on_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            ""
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/activities",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/activities",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "activities"
+          ],
+          "query": [
+            {
+              "key": "date_from",
+              "value": "2026-10-05T12:00:00Z",
+              "disabled": true
+            },
+            {
+              "key": "date_to",
+              "value": "2026-10-05T12:00:00Z",
+              "disabled": true
+            },
+            {
+              "key": "action",
+              "value": "example",
+              "disabled": true
+            },
+            {
+              "key": "entity_type",
+              "value": "example",
+              "disabled": true
+            },
+            {
+              "key": "user_id",
+              "value": "{{user_id}}",
+              "disabled": true
+            },
+            {
+              "key": "page",
+              "value": "1",
+              "disabled": true
+            },
+            {
+              "key": "page_size",
+              "value": "20",
+              "disabled": true
+            }
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/activities/export/csv",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/activities/export/csv",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "activities",
+            "export",
+            "csv"
+          ],
+          "query": [
+            {
+              "key": "date_from",
+              "value": "2026-10-05T12:00:00Z",
+              "disabled": true
+            },
+            {
+              "key": "date_to",
+              "value": "2026-10-05T12:00:00Z",
+              "disabled": true
+            },
+            {
+              "key": "action",
+              "value": "example",
+              "disabled": true
+            },
+            {
+              "key": "entity_type",
+              "value": "example",
+              "disabled": true
+            }
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/activities/project/{project_id}",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/activities/project/{{project_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "activities",
+            "project",
+            "{{project_id}}"
+          ],
+          "query": [
+            {
+              "key": "date_from",
+              "value": "2026-10-05T12:00:00Z",
+              "disabled": true
+            },
+            {
+              "key": "date_to",
+              "value": "2026-10-05T12:00:00Z",
+              "disabled": true
+            },
+            {
+              "key": "action",
+              "value": "example",
+              "disabled": true
+            },
+            {
+              "key": "page",
+              "value": "1",
+              "disabled": true
+            },
+            {
+              "key": "page_size",
+              "value": "20",
+              "disabled": true
+            }
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/activities/user/{user_id}",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/activities/user/{{user_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "activities",
+            "user",
+            "{{user_id}}"
+          ],
+          "query": [
+            {
+              "key": "date_from",
+              "value": "2026-10-05T12:00:00Z",
+              "disabled": true
+            },
+            {
+              "key": "date_to",
+              "value": "2026-10-05T12:00:00Z",
+              "disabled": true
+            },
+            {
+              "key": "action",
+              "value": "example",
+              "disabled": true
+            },
+            {
+              "key": "entity_type",
+              "value": "example",
+              "disabled": true
+            },
+            {
+              "key": "page",
+              "value": "1",
+              "disabled": true
+            },
+            {
+              "key": "page_size",
+              "value": "20",
+              "disabled": true
+            }
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/admin/users",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/admin/users",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "users"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/audit-logs",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/audit-logs",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "audit-logs"
+          ],
+          "query": [
+            {
+              "key": "entity_type",
+              "value": "example",
+              "disabled": true
+            },
+            {
+              "key": "date_from",
+              "value": "2026-10-05T12:00:00Z",
+              "disabled": true
+            },
+            {
+              "key": "date_to",
+              "value": "2026-10-05T12:00:00Z",
+              "disabled": true
+            },
+            {
+              "key": "changed_by",
+              "value": "{{changed_by}}",
+              "disabled": true
+            },
+            {
+              "key": "page",
+              "value": "1",
+              "disabled": true
+            },
+            {
+              "key": "page_size",
+              "value": "20",
+              "disabled": true
+            }
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/audit-logs/export/csv",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/audit-logs/export/csv",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "audit-logs",
+            "export",
+            "csv"
+          ],
+          "query": [
+            {
+              "key": "entity_type",
+              "value": "example",
+              "disabled": true
+            },
+            {
+              "key": "date_from",
+              "value": "2026-10-05T12:00:00Z",
+              "disabled": true
+            },
+            {
+              "key": "date_to",
+              "value": "2026-10-05T12:00:00Z",
+              "disabled": true
+            }
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/audit-logs/{entity_type}/{entity_id}",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/audit-logs/{{entity_type}}/{{entity_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "audit-logs",
+            "{{entity_type}}",
+            "{{entity_id}}"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1",
+              "disabled": true
+            },
+            {
+              "key": "page_size",
+              "value": "50",
+              "disabled": true
+            }
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/auth/me",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/auth/me",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "me"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/dashboard",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/dashboard",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "dashboard"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/notifications",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/notifications",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "notifications"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/notifications/preferences",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/notifications/preferences",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "notifications",
+            "preferences"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/notifications/unread",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/notifications/unread",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "notifications",
+            "unread"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/notifications/unread/count",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/notifications/unread/count",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "notifications",
+            "unread",
+            "count"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/organizations",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/organizations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "organizations"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/organizations/{organization_id}",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/organizations/{{organization_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "organizations",
+            "{{organization_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/organizations/{organization_id}/members",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/organizations/{{organization_id}}/members",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "organizations",
+            "{{organization_id}}",
+            "members"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/projects",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/projects",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "projects"
+          ],
+          "query": [
+            {
+              "key": "name",
+              "value": "Example Project",
+              "disabled": true
+            },
+            {
+              "key": "search",
+              "value": "example",
+              "disabled": true
+            },
+            {
+              "key": "status",
+              "value": "planning",
+              "disabled": true
+            },
+            {
+              "key": "sort_by",
+              "value": "name",
+              "disabled": true
+            },
+            {
+              "key": "sort_order",
+              "value": "asc",
+              "disabled": true
+            },
+            {
+              "key": "page",
+              "value": "1",
+              "disabled": true
+            },
+            {
+              "key": "page_size",
+              "value": "20",
+              "disabled": true
+            }
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/projects/{project_id}",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/projects/{{project_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "projects",
+            "{{project_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/projects/{project_id}/members",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/projects/{{project_id}}/members",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "projects",
+            "{{project_id}}",
+            "members"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/projects/{resource_id}/attachments",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/projects/{{project_id}}/attachments",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "projects",
+            "{{project_id}}",
+            "attachments"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/projects/{resource_id}/attachments/{attachment_id}/download",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/projects/{{project_id}}/attachments/{{attachment_id}}/download",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "projects",
+            "{{project_id}}",
+            "attachments",
+            "{{attachment_id}}",
+            "download"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/projects/{resource_id}/comments",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/projects/{{project_id}}/comments",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "projects",
+            "{{project_id}}",
+            "comments"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/tasks",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks"
+          ],
+          "query": [
+            {
+              "key": "project_id",
+              "value": "{{project_id}}",
+              "disabled": true
+            },
+            {
+              "key": "status",
+              "value": "backlog",
+              "disabled": true
+            },
+            {
+              "key": "priority",
+              "value": "low",
+              "disabled": true
+            },
+            {
+              "key": "assigned_to",
+              "value": "{{assigned_to}}",
+              "disabled": true
+            },
+            {
+              "key": "assignee_id",
+              "value": "{{assignee_id}}",
+              "disabled": true
+            },
+            {
+              "key": "search",
+              "value": "example",
+              "disabled": true
+            },
+            {
+              "key": "due_from",
+              "value": "2026-10-05T12:00:00Z",
+              "disabled": true
+            },
+            {
+              "key": "due_to",
+              "value": "2026-10-05T12:00:00Z",
+              "disabled": true
+            },
+            {
+              "key": "created_from",
+              "value": "2026-10-05T12:00:00Z",
+              "disabled": true
+            },
+            {
+              "key": "created_to",
+              "value": "2026-10-05T12:00:00Z",
+              "disabled": true
+            },
+            {
+              "key": "sort_by",
+              "value": "title",
+              "disabled": true
+            },
+            {
+              "key": "sort_order",
+              "value": "asc",
+              "disabled": true
+            },
+            {
+              "key": "page",
+              "value": "1",
+              "disabled": true
+            },
+            {
+              "key": "page_size",
+              "value": "20",
+              "disabled": true
+            }
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/tasks/{resource_id}/attachments",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}/attachments",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}",
+            "attachments"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/tasks/{resource_id}/attachments/{attachment_id}/download",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}/attachments/{{attachment_id}}/download",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}",
+            "attachments",
+            "{{attachment_id}}",
+            "download"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/tasks/{resource_id}/comments",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}/comments",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}",
+            "comments"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/tasks/{task_id}",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/tasks/{task_id}/dependencies",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}/dependencies",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}",
+            "dependencies"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PATCH /api/notifications/read-all",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/notifications/read-all",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "notifications",
+            "read-all"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PATCH /api/notifications/{notification_id}/read",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/notifications/{{notification_id}}/read",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "notifications",
+            "{{notification_id}}",
+            "read"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PATCH /api/organizations/{organization_id}",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/organizations/{{organization_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "organizations",
+            "{{organization_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Updated organization\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PATCH /api/organizations/{organization_id}/members/{user_id}",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/organizations/{{organization_id}}/members/{{user_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "organizations",
+            "{{organization_id}}",
+            "members",
+            "{{user_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"role\": \"team_member\",\n  \"is_active\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PATCH /api/projects/{project_id}",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/projects/{{project_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "projects",
+            "{{project_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Updated project\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PATCH /api/projects/{resource_id}/comments/{comment_id}",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/projects/{{project_id}}/comments/{{comment_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "projects",
+            "{{project_id}}",
+            "comments",
+            "{{comment_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"comment\": \"Please review @member\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PATCH /api/tasks/{resource_id}/comments/{comment_id}",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}/comments/{{comment_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}",
+            "comments",
+            "{{comment_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"comment\": \"Please review @member\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PATCH /api/tasks/{task_id}",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Updated task\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PATCH /api/tasks/{task_id}/assign",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}/assign",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}",
+            "assign"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"assigned_to\": \"{{assigned_to}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PATCH /api/tasks/{task_id}/priority",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}/priority",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}",
+            "priority"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"priority\": \"low\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PATCH /api/tasks/{task_id}/status",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}/status",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}",
+            "status"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"backlog\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST /api/auth/change-password",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/auth/change-password",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "change-password"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"current_password\": \"password123\",\n  \"new_password\": \"newpassword123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST /api/auth/logout",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/auth/logout",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "logout"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST /api/auth/refresh",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/auth/refresh",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "refresh"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const result = pm.response.json();",
+              "  pm.collectionVariables.set(\"access_token\", result.access_token);",
+              "  pm.collectionVariables.set(\"refresh_token\", result.refresh_token);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /api/auth/signup",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/auth/signup",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "signup"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"organization_name\": \"Example Organization\",\n  \"full_name\": \"Organization Admin\",\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST /api/notifications/process-reminders",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/notifications/process-reminders",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "notifications",
+            "process-reminders"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST /api/organizations",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/organizations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "organizations"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Another organization\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST /api/organizations/{organization_id}/members",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/organizations/{{organization_id}}/members",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "organizations",
+            "{{organization_id}}",
+            "members"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": {{user_id}},\n  \"role\": \"team_member\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST /api/projects",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/projects",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "projects"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Example project\",\n  \"description\": \"Project created from Postman\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const result = pm.response.json();",
+              "  pm.collectionVariables.set(\"project_id\", result.id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /api/projects/{project_id}/archive",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/projects/{{project_id}}/archive",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "projects",
+            "{{project_id}}",
+            "archive"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST /api/projects/{project_id}/members",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/projects/{{project_id}}/members",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "projects",
+            "{{project_id}}",
+            "members"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": {{user_id}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST /api/projects/{resource_id}/attachments",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/projects/{{project_id}}/attachments",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "projects",
+            "{{project_id}}",
+            "attachments"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": []
+            }
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const result = pm.response.json();",
+              "  pm.collectionVariables.set(\"attachment_id\", result.id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /api/projects/{resource_id}/comments",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/projects/{{project_id}}/comments",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "projects",
+            "{{project_id}}",
+            "comments"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"comment\": \"Please review @member\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const result = pm.response.json();",
+              "  pm.collectionVariables.set(\"comment_id\", result.id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /api/tasks",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Example task\",\n  \"project_id\": {{project_id}},\n  \"status\": \"todo\",\n  \"priority\": \"high\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const result = pm.response.json();",
+              "  pm.collectionVariables.set(\"task_id\", result.id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /api/tasks/{resource_id}/attachments",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}/attachments",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}",
+            "attachments"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": []
+            }
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const result = pm.response.json();",
+              "  pm.collectionVariables.set(\"attachment_id\", result.id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /api/tasks/{resource_id}/comments",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}/comments",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}",
+            "comments"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"comment\": \"Please review @member\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const result = pm.response.json();",
+              "  pm.collectionVariables.set(\"comment_id\", result.id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /api/tasks/{task_id}/dependencies",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}/dependencies",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}",
+            "dependencies"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"depends_on_id\": {{depends_on_id}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST /api/tasks/{task_id}/move",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}/move",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}",
+            "move"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"project_id\": {{project_id}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PUT /api/admin/users/{user_id}/activate",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/admin/users/{{user_id}}/activate",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "users",
+            "{{user_id}}",
+            "activate"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PUT /api/admin/users/{user_id}/deactivate",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/admin/users/{{user_id}}/deactivate",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "users",
+            "{{user_id}}",
+            "deactivate"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PUT /api/admin/users/{user_id}/role",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/admin/users/{{user_id}}/role",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "users",
+            "{{user_id}}",
+            "role"
+          ],
+          "query": [
+            {
+              "key": "role",
+              "value": "team_member",
+              "disabled": true
+            }
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PUT /api/notifications/preferences",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/notifications/preferences",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "notifications",
+            "preferences"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"notification_type\": \"TASK_ASSIGNED\",\n  \"enabled\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PUT /api/notifications/read-all",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/notifications/read-all",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "notifications",
+            "read-all"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PUT /api/notifications/{notification_id}/read",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/notifications/{{notification_id}}/read",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "notifications",
+            "{{notification_id}}",
+            "read"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PUT /api/organizations/{organization_id}",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/organizations/{{organization_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "organizations",
+            "{{organization_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Updated organization\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PUT /api/projects/{project_id}",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/projects/{{project_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "projects",
+            "{{project_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Updated project\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PUT /api/projects/{resource_id}/comments/{comment_id}",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/projects/{{project_id}}/comments/{{comment_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "projects",
+            "{{project_id}}",
+            "comments",
+            "{{comment_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"comment\": \"Please review @member\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PUT /api/tasks/{resource_id}/comments/{comment_id}",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}/comments/{{comment_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}",
+            "comments",
+            "{{comment_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"comment\": \"Please review @member\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PUT /api/tasks/{task_id}",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "X-Organization-ID",
+            "value": "{{organization_id}}",
+            "disabled": true
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/tasks/{{task_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "tasks",
+            "{{task_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Updated task\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    }
+  ]
+}

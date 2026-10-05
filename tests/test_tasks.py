@@ -18,7 +18,7 @@ def test_manager_can_create_and_assign_task(client, manager_headers, member_head
         json={
             "title": "Do the thing",
             "description": "details",
-            "priority": "High",
+            "priority": "high",
             "assigned_to": member_id,
             "project_id": project_id,
         },
@@ -27,7 +27,7 @@ def test_manager_can_create_and_assign_task(client, manager_headers, member_head
     assert resp.status_code == 201
     body = resp.json()
     assert body["assigned_to"] == member_id
-    assert body["status"] == "Pending"
+    assert body["status"] == "todo"
 
 
 def test_member_cannot_create_task(client, manager_headers, member_headers):
@@ -50,10 +50,10 @@ def test_member_can_only_update_status_of_own_task(client, manager_headers, memb
 
     # Member updates status: allowed
     resp = client.put(
-        f"/tasks/{task['id']}", json={"status": "In Progress"}, headers=member_headers
+        f"/tasks/{task['id']}", json={"status": "in_progress"}, headers=member_headers
     )
     assert resp.status_code == 200
-    assert resp.json()["status"] == "In Progress"
+    assert resp.json()["status"] == "in_progress"
 
     # Member tries to change title: forbidden
     resp = client.put(
@@ -71,7 +71,7 @@ def test_member_cannot_update_task_not_assigned_to_them(client, manager_headers,
     ).json()
 
     resp = client.put(
-        f"/tasks/{task['id']}", json={"status": "Completed"}, headers=member_headers
+        f"/tasks/{task['id']}", json={"status": "done"}, headers=member_headers
     )
     assert resp.status_code == 403
 
@@ -105,7 +105,7 @@ def test_manager_cannot_reassign_task_to_missing_user(client, manager_headers, m
     assert resp.status_code == 404
 
 
-def test_member_sees_only_own_tasks_in_list(client, manager_headers, member_headers):
+def test_member_sees_project_tasks_in_list(client, manager_headers, member_headers):
     project_id, member_id = _setup_project_with_member(client, manager_headers, member_headers)
     client.post(
         "/tasks",
@@ -122,7 +122,7 @@ def test_member_sees_only_own_tasks_in_list(client, manager_headers, member_head
     body = resp.json()
     titles = [t["title"] for t in body["items"]]
     assert "Mine" in titles
-    assert "NotMine" not in titles
+    assert "NotMine" in titles
 
 
 def test_task_comment_and_attachment_flow(client, manager_headers, member_headers):

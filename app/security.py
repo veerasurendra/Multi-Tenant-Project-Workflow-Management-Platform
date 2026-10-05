@@ -1,5 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+import hashlib
+import hmac
+import uuid
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -17,6 +20,9 @@ pwd_context = CryptContext(
 # ----------------------------
 
 def hash_password(password: str) -> str:
+    if len(password.encode("utf-8")) > 72:
+        from fastapi import HTTPException
+        raise HTTPException(422, "Password must be at most 72 UTF-8 bytes")
     return pwd_context.hash(password)
 
 
@@ -30,17 +36,14 @@ def verify_password(
     )
 
 def hash_refresh_token(token: str) -> str:
-    return pwd_context.hash(token)
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 def verify_refresh_token(
     plain_token: str,
     hashed_token: str,
 ) -> bool:
-    return pwd_context.verify(
-        plain_token,
-        hashed_token,
-    )
+    return hmac.compare_digest(hash_refresh_token(plain_token), hashed_token)
 
 # ----------------------------
 # Access Token
@@ -94,6 +97,7 @@ def create_refresh_token(
         {
             "exp": expire,
             "type": "refresh",
+            "jti": uuid.uuid4().hex,
         }
     )
 

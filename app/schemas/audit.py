@@ -7,7 +7,10 @@ from pydantic import BaseModel, ConfigDict
 class AuditLogOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    ip_address: str | None = None
+    event_metadata: dict | None = None
     id: int
+    organization_id: int | None
     entity_type: str
     entity_id: int
     field_name: str

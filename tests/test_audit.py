@@ -18,18 +18,19 @@ def test_task_status_change_recorded_in_audit_trail(client, manager_headers, mem
         headers=manager_headers,
     ).json()
 
-    client.put(f"/tasks/{task['id']}", json={"status": "In Progress"}, headers=member_headers)
-    client.put(f"/tasks/{task['id']}", json={"status": "Completed"}, headers=member_headers)
+    for workflow_status in ("in_progress", "review", "done"):
+        response = client.put(f"/tasks/{task['id']}", json={"status": workflow_status}, headers=member_headers)
+        assert response.status_code == 200
 
     resp = client.get(f"/audit-logs/Task/{task['id']}", headers=manager_headers)
     assert resp.status_code == 200
     items = resp.json()["items"]
     status_changes = [a for a in items if a["field_name"] == "status"]
-    assert len(status_changes) == 2
-    assert status_changes[0]["old_value"] == "Pending"
+    assert len(status_changes) == 3
+    assert status_changes[0]["old_value"] == "todo"
     # ordering is chronological (asc), so first change should be Pending -> In Progress
-    assert status_changes[0]["new_value"] == "In Progress"
-    assert status_changes[1]["new_value"] == "Completed"
+    assert status_changes[0]["new_value"] == "in_progress"
+    assert status_changes[2]["new_value"] == "done"
 
 
 def test_project_field_changes_recorded_in_audit_trail(client, manager_headers):
@@ -115,16 +116,10 @@ def test_outsider_cannot_view_task_audit_trail(client, manager_headers, member_h
         json={"title": "Private task", "assigned_to": member_id, "project_id": project_id},
         headers=manager_headers,
     ).json()
-    client.put(f"/tasks/{task['id']}", json={"status": "In Progress"}, headers=member_headers)
+    client.put(f"/tasks/{task['id']}", json={"status": "in_progress"}, headers=member_headers)
 
-    client.post(
-        "/auth/signup",
-        json={"full_name": "Outsider", "email": "outsider2@example.com", "password": "password123", "role": "member"},
-    )
-    login = client.post(
-        "/auth/login", data={"username": "outsider2@example.com", "password": "password123"}
-    ).json()
-    outsider_headers = {"Authorization": f"Bearer {login['access_token']}"}
+    from tests.conftest import register_and_login
+    outsider_headers = register_and_login(client, "outsider2@example.com")
 
     resp = client.get(f"/audit-logs/Task/{task['id']}", headers=outsider_headers)
     assert resp.status_code == 403

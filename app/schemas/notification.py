@@ -10,6 +10,7 @@ class NotificationOut(BaseModel):
     id: int
     title: str
     message: str
+    organization_id: int
     notification_type: Optional[str] = None
     is_read: bool
     created_at: datetime

@@ -38,7 +38,7 @@ def all_audit_logs(
     if not is_admin(current_user):
         raise HTTPException(status_code=403, detail="Only admins can view the full audit trail")
 
-    query = db.query(models.AuditLog)
+    query = db.query(models.AuditLog).filter(True if current_user.role == models.RoleEnum.super_admin and current_user.organization_id is None else models.AuditLog.organization_id == current_user.organization_id)
     if entity_type:
         query = query.filter(models.AuditLog.entity_type == entity_type)
     if date_from:
@@ -69,7 +69,7 @@ def export_audit_logs_csv(
     if not is_admin(current_user):
         raise HTTPException(status_code=403, detail="Only admins can export the audit trail")
 
-    query = db.query(models.AuditLog)
+    query = db.query(models.AuditLog).filter(True if current_user.role == models.RoleEnum.super_admin and current_user.organization_id is None else models.AuditLog.organization_id == current_user.organization_id)
     if entity_type:
         query = query.filter(models.AuditLog.entity_type == entity_type)
     if date_from:
@@ -124,15 +124,15 @@ def entity_audit_history(
     normalized = entity_type.strip().lower()
 
     if normalized == "project":
-        project = get_project_or_404(db, entity_id)
+        project = get_project_or_404(db, entity_id, current_user)
         ensure_can_view_project(db, current_user, project)
     elif normalized == "task":
-        task = get_task_or_404(db, entity_id)
+        task = get_task_or_404(db, entity_id, current_user)
         ensure_can_view_project(db, current_user, task.project)
     elif not is_admin(current_user):
         raise HTTPException(status_code=403, detail="Only admins can view this entity's audit trail")
 
-    query = db.query(models.AuditLog).filter(
+    query = db.query(models.AuditLog).filter(True if current_user.role == models.RoleEnum.super_admin and current_user.organization_id is None else models.AuditLog.organization_id == current_user.organization_id).filter(
         models.AuditLog.entity_type == entity_type,
         models.AuditLog.entity_id == entity_id,
     )

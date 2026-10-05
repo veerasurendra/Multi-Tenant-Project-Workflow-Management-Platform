@@ -21,6 +21,7 @@ def _own_notification_or_404(
         .filter(
             models.Notification.id == notification_id,
             models.Notification.user_id == current_user.id,
+            models.Notification.organization_id == current_user.organization_id,
             models.Notification.is_deleted.is_(False),
         )
         .first()
@@ -39,6 +40,7 @@ def my_notifications(
         db.query(models.Notification)
         .filter(
             models.Notification.user_id == current_user.id,
+            models.Notification.organization_id == current_user.organization_id,
             models.Notification.is_deleted.is_(False),
         )
         .order_by(models.Notification.created_at.desc())
@@ -55,6 +57,7 @@ def unread_notifications(
         db.query(models.Notification)
         .filter(
             models.Notification.user_id == current_user.id,
+            models.Notification.organization_id == current_user.organization_id,
             models.Notification.is_deleted.is_(False),
             models.Notification.is_read.is_(False),
         )
@@ -72,6 +75,7 @@ def unread_notification_count(
         db.query(models.Notification)
         .filter(
             models.Notification.user_id == current_user.id,
+            models.Notification.organization_id == current_user.organization_id,
             models.Notification.is_deleted.is_(False),
             models.Notification.is_read.is_(False),
         )
@@ -80,6 +84,7 @@ def unread_notification_count(
     return schemas.UnreadCountOut(unread_count=count)
 
 
+@router.patch("/read-all")
 @router.put("/read-all")
 def mark_all_read(
     db: Session = Depends(get_db),
@@ -89,6 +94,7 @@ def mark_all_read(
         db.query(models.Notification)
         .filter(
             models.Notification.user_id == current_user.id,
+            models.Notification.organization_id == current_user.organization_id,
             models.Notification.is_deleted.is_(False),
             models.Notification.is_read.is_(False),
         )
@@ -98,6 +104,7 @@ def mark_all_read(
     return {"message": "All notifications marked as read", "updated_count": updated}
 
 
+@router.patch("/{notification_id}/read", response_model=schemas.NotificationOut)
 @router.put("/{notification_id}/read", response_model=schemas.NotificationOut)
 def mark_read(
     notification_id: int,

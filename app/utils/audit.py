@@ -38,6 +38,9 @@ def log_change(
 
     try:
         entry = models.AuditLog(
+            ip_address=db.info.get("ip_address"),
+            event_metadata={},
+            organization_id=db.info.get("organization_id") or db.get(models.User, changed_by).organization_id,
             entity_type=entity_type,
             entity_id=entity_id,
             field_name=field_name,

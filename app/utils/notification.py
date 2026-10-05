@@ -38,6 +38,7 @@ def create_notification(
             return None
 
         notification = models.Notification(
+            organization_id=db.info.get("organization_id") or db.get(models.User, user_id).organization_id,
             user_id=user_id,
             title=title,
             message=message,

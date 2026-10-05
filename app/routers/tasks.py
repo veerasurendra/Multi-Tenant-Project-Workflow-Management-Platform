@@ -1,439 +1,107 @@
-import os
-import shutil
-import uuid
-from typing import List, Optional, cast
-
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
+from datetime import datetime
+from typing import Literal
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-
-from app.utils.notification import create_notification
-from app.utils.email import send_email_notification
-
-from .. import models, schemas
-from ..config import settings
-from ..database import get_db
-from ..dependences import (
-    ensure_can_manage_tasks_in_project,
-    get_current_user,
-    get_project_or_404,
-    get_task_or_404,
-    is_admin,
-    is_manager,
-    is_project_creator,
-)
-from ..enum import ActivityAction
-from ..utils.audit import log_change
-from ..utils.logging import log_activity
-
+from sqlalchemy import or_, case
+from pydantic import BaseModel
+from app import models, schemas
+from app.database import get_db
+from app.dependences import get_current_user, get_task_or_404, ensure_can_manage_tasks_in_project
+from app.repositories.resources import tasks
+from app.services import tasks as service
+from app.services.workflow import dependency, editable
+from app.services.events import record
 router = APIRouter(tags=["Tasks"])
 
-
-def _ensure_can_view_task(db: Session, user: models.User, task: models.Task) -> None:
-    if is_admin(user):
-        return
-    project = task.project
-    if is_manager(user) and is_project_creator(user, project):
-        return
-    if task.assigned_to == user.id:
-        return
-    raise HTTPException(status_code=403, detail="You do not have access to this task")
-
-
-def _get_assignee_or_404(db: Session, user_id: int) -> models.User:
-    assignee = db.query(models.User).filter(models.User.id == user_id).first()
-    if not assignee:
-        raise HTTPException(status_code=404, detail="Assignee not found")
-    if not assignee.is_active:
-        raise HTTPException(status_code=400, detail="Assignee account is inactive")
-    return assignee
-
-
-def _log_task_update(
-    db: Session,
-    background_tasks,
-    current_user_id: int,
-    task: "models.Task",
-    project: "models.Project",
-    before: dict,
-    audited_fields: tuple,
-) -> None:
-    """Shared post-update side effects: activity log entry, per-field audit
-    trail entries, and notifications for reassignment / deadline changes /
-    completion, all dispatched as background tasks."""
-
-    background_tasks.add_task(
-        log_activity,
-        db=db,
-        user_id=current_user_id,
-        action=ActivityAction.TASK_UPDATED.value,
-        entity_type="Task",
-        entity_id=task.id,
-        description=f"Updated task '{task.title}'",
-    )
-
-    for field in audited_fields:
-        old_value = before[field]
-        new_value = getattr(task, field)
-        if old_value != new_value:
-            background_tasks.add_task(
-                log_change,
-                db=db,
-                entity_type="Task",
-                entity_id=task.id,
-                field_name=field,
-                old_value=old_value,
-                new_value=new_value,
-                changed_by=current_user_id,
-            )
-
-    reassigned = before["assigned_to"] != task.assigned_to
-    if reassigned and task.assigned_to:
-        background_tasks.add_task(
-            create_notification,
-            db=db,
-            user_id=task.assigned_to,
-            title="Task Reassigned",
-            message=f"Task '{task.title}' has been assigned to you.",
-            notification_type=models.NotificationType.task_reassigned.value,
-        )
-
-    deadline_changed = before["due_date"] != task.due_date
-    if deadline_changed and task.assigned_to:
-        background_tasks.add_task(
-            create_notification,
-            db=db,
-            user_id=task.assigned_to,
-            title="Task Deadline Updated",
-            message=f"The deadline for task '{task.title}' has changed.",
-            notification_type=models.NotificationType.task_deadline_updated.value,
-        )
-        assignee = db.query(models.User).filter(models.User.id == task.assigned_to).first()
-        if assignee:
-            background_tasks.add_task(
-                send_email_notification,
-                assignee.email,
-                subject=f"Deadline updated: {task.title}",
-                body=f"The deadline for task '{task.title}' has changed to {task.due_date}.",
-            )
-
-    completed = (
-        before["status"] != task.status
-        and task.status == models.StatusEnum.completed
-    )
-    if completed:
-        background_tasks.add_task(
-            create_notification,
-            db=db,
-            user_id=task.created_by,
-            title="Task Completed",
-            message=f"Task '{task.title}' has been marked as completed.",
-            notification_type=models.NotificationType.task_completed.value,
-        )
-
-
-@router.post("/tasks", response_model=schemas.TaskOut, status_code=status.HTTP_201_CREATED)
-def create_task(
-    payload: schemas.TaskCreate,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    current_user_id = int(cast(int, current_user.id))
-    project = get_project_or_404(db, payload.project_id)
-    ensure_can_manage_tasks_in_project(db, current_user, project)
-
-    if payload.assigned_to:
-        _get_assignee_or_404(db, payload.assigned_to)
-
-    task = models.Task(
-        title=payload.title,
-        description=payload.description,
-        status=payload.status,
-        priority=payload.priority,
-        due_date=payload.due_date,
-        assigned_to=payload.assigned_to,
-        project_id=payload.project_id,
-        created_by=current_user_id,
-    )
-    db.add(task)
-    db.commit()
-    db.refresh(task)
-
-    background_tasks.add_task(
-        log_activity,
-        db=db,
-        user_id=current_user_id,
-        action=ActivityAction.TASK_CREATED.value,
-        entity_type="Task",
-        entity_id=task.id,
-        description=f"Created task '{task.title}'",
-    )
-
-    if task.assigned_to:
-        background_tasks.add_task(
-            create_notification,
-            db=db,
-            user_id=task.assigned_to,
-            title="Task Assigned",
-            message=f"You have been assigned task '{task.title}'.",
-            notification_type=models.NotificationType.task_assigned.value,
-        )
-        assignee = db.query(models.User).filter(models.User.id == task.assigned_to).first()
-        if assignee:
-            background_tasks.add_task(
-                send_email_notification,
-                assignee.email,
-                subject=f"New task assigned: {task.title}",
-                body=f"You have been assigned task '{task.title}' in project '{project.name}'.",
-            )
-
-    return task
-
+@router.post("/tasks", response_model=schemas.TaskOut, status_code=201)
+def create_task(payload: schemas.TaskCreate, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return service.create(db, user, payload)
 
 @router.get("/tasks", response_model=schemas.Page[schemas.TaskOut])
-def list_tasks(
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-    project_id: Optional[int] = None,
-    status_filter: Optional[models.StatusEnum] = Query(None, alias="status"),
-    priority: Optional[models.PriorityEnum] = None,
-    assigned_to: Optional[int] = None,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(10, ge=1, le=100),
-):
-    query = db.query(models.Task).filter(models.Task.is_deleted.is_(False))
-
-    if not is_admin(current_user):
-        current_user_id = int(cast(int, current_user.id))
-        owned_project_ids = (
-            db.query(models.Project.id)
-            .filter(models.Project.created_by == current_user_id)
-            .scalar_subquery()
-        )
-        query = query.filter(
-            (models.Task.assigned_to == current_user_id)
-            | (models.Task.project_id.in_(owned_project_ids))
-        )
-
-    if project_id:
-        query = query.filter(models.Task.project_id == project_id)
-    if status_filter:
-        query = query.filter(models.Task.status == status_filter)
-    if priority:
-        query = query.filter(models.Task.priority == priority)
-    if assigned_to:
-        query = query.filter(models.Task.assigned_to == assigned_to)
-
-    total = query.count()
-    items = (
-        query.order_by(models.Task.created_at.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-        .all()
-    )
-    return schemas.Page(total=total, page=page, page_size=page_size, items=items)
-
+def list_tasks(db: Session = Depends(get_db), user=Depends(get_current_user), project_id: int | None = None,
+    status: models.StatusEnum | None = None, priority: models.PriorityEnum | None = None,
+    assigned_to: int | None = None, assignee_id: int | None = None, search: str | None = None,
+    due_from: datetime | None = None, due_to: datetime | None = None,
+    created_from: datetime | None = None, created_to: datetime | None = None,
+    sort_by: Literal["title", "created_at", "updated_at", "due_date", "priority", "status"] = "created_at",
+    sort_order: Literal["asc", "desc"] = "desc", page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100)):
+    q = tasks(db, user)
+    for column, value in [(models.Task.project_id, project_id), (models.Task.status, status), (models.Task.priority, priority), (models.Task.assigned_to, assignee_id if assignee_id is not None else assigned_to)]:
+        if value is not None:
+            q = q.filter(column == value)
+    if search:
+        q = q.filter(or_(models.Task.title.ilike(f"%{search}%"), models.Task.description.ilike(f"%{search}%")))
+    for column, low, high in [(models.Task.due_date, due_from, due_to), (models.Task.created_at, created_from, created_to)]:
+        if low and high and low > high:
+            raise HTTPException(422, "Invalid date filter range")
+        if low: q = q.filter(column >= low)
+        if high: q = q.filter(column <= high)
+    total = q.count(); column = getattr(models.Task, sort_by)
+    if sort_by == "priority":
+        column = case((models.Task.priority == models.PriorityEnum.low, 1), (models.Task.priority == models.PriorityEnum.medium, 2), else_=3)
+    elif sort_by == "status":
+        column = case(*[(models.Task.status == status, rank) for rank, status in enumerate(models.StatusEnum)], else_=99)
+    rows = q.order_by(column.asc() if sort_order == "asc" else column.desc(), models.Task.id).offset((page-1)*page_size).limit(page_size).all()
+    return schemas.Page(total=total, page=page, page_size=page_size, items=rows)
 
 @router.get("/tasks/{task_id}", response_model=schemas.TaskOut)
-def get_task(
-    task_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    task = get_task_or_404(db, task_id)
-    _ensure_can_view_task(db, current_user, task)
-    return task
-
+def get_task(task_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    row = get_task_or_404(db, task_id, user); service.view(db, user, row)
+    return row
 
 @router.put("/tasks/{task_id}", response_model=schemas.TaskOut)
-def update_task(
-    task_id: int,
-    payload: schemas.TaskUpdate,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    current_user_id = int(cast(int, current_user.id))
-    task = get_task_or_404(db, task_id)
-    project = task.project
+@router.patch("/tasks/{task_id}", response_model=schemas.TaskOut)
+def update_task(task_id: int, payload: schemas.TaskUpdate, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return service.update(db, user, task_id, payload)
 
-    AUDITED_FIELDS = ("title", "description", "status", "priority", "due_date", "assigned_to")
+class Assignment(BaseModel):
+    assigned_to: int | None
+class Move(BaseModel):
+    project_id: int
+class Priority(BaseModel):
+    priority: models.PriorityEnum
 
-    if is_admin(current_user) or (is_manager(current_user) and is_project_creator(current_user, project)):
-        # Admins/owning-Managers can update any field, including reassignment.
-        update_data = payload.model_dump(exclude_unset=True)
-        if update_data.get("assigned_to") is not None:
-            _get_assignee_or_404(db, update_data["assigned_to"])
+@router.patch("/tasks/{task_id}/assign", response_model=schemas.TaskOut)
+def assign_task(task_id: int, payload: Assignment, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return service.update(db, user, task_id, schemas.TaskUpdate(assigned_to=payload.assigned_to))
 
-        before = {field: getattr(task, field) for field in AUDITED_FIELDS}
-        for field, value in update_data.items():
-            setattr(task, field, value)
-        db.commit()
-        db.refresh(task)
+@router.patch("/tasks/{task_id}/status", response_model=schemas.TaskOut)
+def task_status(task_id: int, payload: schemas.TaskStatusUpdate, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return service.update(db, user, task_id, schemas.TaskUpdate(status=payload.status))
 
-        _log_task_update(db, background_tasks, current_user_id, task, project, before, AUDITED_FIELDS)
-        return task
+@router.patch("/tasks/{task_id}/priority", response_model=schemas.TaskOut)
+def task_priority(task_id: int, payload: Priority, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return service.update(db, user, task_id, schemas.TaskUpdate(priority=payload.priority))
 
-    if task.assigned_to == current_user_id:
-        # Members may only change status on their own tasks.
-        update_data = payload.model_dump(exclude_unset=True)
-        disallowed = set(update_data.keys()) - {"status"}
-        if disallowed:
-            raise HTTPException(
-                status_code=403,
-                detail="Members may only update the status of their assigned tasks",
-            )
+@router.post("/tasks/{task_id}/move", response_model=schemas.TaskOut)
+def move_task(task_id: int, payload: Move, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return service.update(db, user, task_id, schemas.TaskUpdate(project_id=payload.project_id))
 
-        before = {field: getattr(task, field) for field in AUDITED_FIELDS}
-        if "status" in update_data:
-            task.status = update_data["status"]
-        db.commit()
-        db.refresh(task)
+@router.delete("/tasks/{task_id}", status_code=204)
+def delete_task(task_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    service.delete(db, user, task_id)
 
-        _log_task_update(db, background_tasks, current_user_id, task, project, before, AUDITED_FIELDS)
-        return task
+class Dependency(BaseModel):
+    depends_on_id: int
 
-    raise HTTPException(status_code=403, detail="You do not have permission to update this task")
+@router.post("/tasks/{task_id}/dependencies", status_code=201)
+def add_dependency(task_id: int, payload: Dependency, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    row = get_task_or_404(db, task_id, user); ensure_can_manage_tasks_in_project(db, user, row.project); editable(row.project)
+    prerequisite = get_task_or_404(db, payload.depends_on_id, user)
+    link = dependency(db, row, prerequisite)
+    record(db, user, "TASK_DEPENDENCY_ADDED", "Task", row.id)
+    db.commit(); db.refresh(link)
+    return {"id": link.id, "task_id": task_id, "depends_on_id": link.depends_on_id}
 
+@router.get("/tasks/{task_id}/dependencies")
+def list_dependencies(task_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    row = get_task_or_404(db, task_id, user); service.view(db, user, row)
+    return [{"id": e.id, "task_id": e.task_id, "depends_on_id": e.depends_on_id} for e in db.query(models.TaskDependency).filter_by(task_id=task_id).all()]
 
-@router.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_task(
-    task_id: int,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    current_user_id = int(cast(int, current_user.id))
-    task = get_task_or_404(db, task_id)
-    project = task.project
-    ensure_can_manage_tasks_in_project(db, current_user, project)
-
-    task.is_deleted = True
-    db.commit()
-    background_tasks.add_task(
-        log_activity,
-        db=db,
-        user_id=current_user_id,
-        action=ActivityAction.TASK_DELETED.value,
-        entity_type="Task",
-        entity_id=task.id,
-        description=f"Deleted task '{task.title}'",
-    )
-    return None
-
-
-# ---------- Task Comments ----------
-
-
-@router.post(
-    "/tasks/{task_id}/comments",
-    response_model=schemas.TaskCommentOut,
-    status_code=status.HTTP_201_CREATED,
-)
-def add_task_comment(
-    task_id: int,
-    payload: schemas.TaskCommentCreate,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    current_user_id = int(cast(int, current_user.id))
-    task = get_task_or_404(db, task_id)
-    _ensure_can_view_task(db, current_user, task)
-
-    comment = models.TaskComment(
-        task_id=task_id, user_id=current_user_id, comment=payload.comment
-    )
-    db.add(comment)
-    db.commit()
-    db.refresh(comment)
-    background_tasks.add_task(
-        log_activity,
-        db=db,
-        user_id=current_user_id,
-        action=ActivityAction.TASK_COMMENT_ADDED.value,
-        entity_type="Task",
-        entity_id=task_id,
-        description=f"Added comment to task '{task.title}'",
-    )
-    return comment
-
-
-@router.get("/tasks/{task_id}/comments", response_model=List[schemas.TaskCommentOut])
-def list_task_comments(
-    task_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    current_user_id = int(cast(int, current_user.id))
-    task = get_task_or_404(db, task_id)
-    _ensure_can_view_task(db, current_user, task)
-    return (
-        db.query(models.TaskComment)
-        .filter(models.TaskComment.task_id == task_id)
-        .order_by(models.TaskComment.created_at.asc())
-        .all()
-    )
-
-
-# ---------- Task Attachments ----------
-
-
-@router.post(
-    "/tasks/{task_id}/attachments",
-    response_model=schemas.TaskAttachmentOut,
-    status_code=status.HTTP_201_CREATED,
-)
-def upload_task_attachment(
-    task_id: int,
-    background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    current_user_id = int(cast(int, current_user.id))
-    task = get_task_or_404(db, task_id)
-    _ensure_can_view_task(db, current_user, task)
-
-    filename = os.path.basename(file.filename or "").strip()
-    if not filename:
-        raise HTTPException(status_code=400, detail="Uploaded file must have a filename")
-
-    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-    safe_name = f"{uuid.uuid4().hex}_{filename}"
-    dest_path = os.path.join(settings.UPLOAD_DIR, safe_name)
-    with open(dest_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    attachment = models.TaskAttachment(
-        task_id=task_id,
-        uploaded_by=current_user_id,
-        filename=filename,
-        filepath=dest_path,
-    )
-    db.add(attachment)
-    db.commit()
-    db.refresh(attachment)
-    background_tasks.add_task(
-        log_activity,
-        db=db,
-        user_id=current_user_id,
-        action=ActivityAction.TASK_ATTACHMENT_ADDED.value,
-        entity_type="Task",
-        entity_id=task_id,
-        description=f"Uploaded attachment '{filename}' to task '{task.title}'",
-    )
-    return attachment
-
-
-@router.get("/tasks/{task_id}/attachments", response_model=List[schemas.TaskAttachmentOut])
-def list_task_attachments(
-    task_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    task = get_task_or_404(db, task_id)
-    _ensure_can_view_task(db, current_user, task)
-    return (
-        db.query(models.TaskAttachment).filter(models.TaskAttachment.task_id == task_id).all()
-    )
+@router.delete("/tasks/{task_id}/dependencies/{depends_on_id}", status_code=204)
+def remove_dependency(task_id: int, depends_on_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    row = get_task_or_404(db, task_id, user); ensure_can_manage_tasks_in_project(db, user, row.project); editable(row.project)
+    db.query(models.Project).filter_by(id=row.project_id).with_for_update().first()
+    link = db.query(models.TaskDependency).filter_by(task_id=task_id, depends_on_id=depends_on_id).first()
+    if not link: raise HTTPException(404, "Dependency not found")
+    db.delete(link); record(db, user, "TASK_DEPENDENCY_REMOVED", "Task", row.id); db.commit()
